@@ -1,18 +1,25 @@
-#include "mpi.h"
-#include "stdio.h"
-#include <time.h>
-#include <math.h>
-#include <omp.h>
+#include <stdio.h>
+#include <mpi.h>
 
 int main(int argc, char* argv[])
 {
-	int rank, ranksize, i; 
-	MPI_Init(&argc, &argv);// 
-	//Определяем свой номер в группе:
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank); //
-	//Определяем размер группы:
-	MPI_Comm_size(MPI_COMM_WORLD, &ranksize);//
+	int rank, ranksize, i;
+	MPI_Init(&argc, &argv);
+
+	double start_time = MPI_Wtime();
+	
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &ranksize);
+	
 	printf("Hello world from process %d from total number of %d\n", rank, ranksize);
-	MPI_Finalize();//
+
+	double end_time = MPI_Wtime();
+
+	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Finalize();
+
+	if (rank == 0) {
+		printf("Execution time: %f seconds\n", end_time - start_time);
+	}
 	return 0;
 }
