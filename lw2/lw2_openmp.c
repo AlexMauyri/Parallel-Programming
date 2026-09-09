@@ -7,7 +7,8 @@
 #define ITER_NUM 20
 #define Q 20
 
-void print_parameters() {
+int main(int argc, char* argv[])
+{
   printf("====================== PARAMS =======================\n");
   printf("Number of vectors: %d\n", NUM_OF_VECTORS);
   printf("Number of elements: %d\n", NMAX);
@@ -15,24 +16,14 @@ void print_parameters() {
   printf("Number of iterations: %d\n", ITER_NUM);
   printf("Q: %d\n", Q);
   printf("=====================================================\n");
-}
-
-void init_array(double *a, size_t size)
-{
-  for (int i = 0; i < size; ++i) {
-    a[i] = 1.0;
-  }
-}
-
-int main(int argc, char* argv[])
-{
-  print_parameters();
 
 	omp_set_num_threads(NUM_OF_THREADS);
 	
 	double a[NUM_OF_VECTORS][NMAX];
-  for (int j = 0; j < NUM_OF_VECTORS; ++j) {
-	  init_array(a[j], NMAX);
+  for (int i = 0; i < NUM_OF_VECTORS; ++i) {
+	  for (int j = 0; j < NMAX; ++j) {
+	    a[i][j] = 1.0;
+	  }
   }
 
   double time_init = 0, time_sequential = 0, time_reduction = 0, time_critical = 0, time_atomic = 0, start_time;
@@ -109,6 +100,8 @@ int main(int argc, char* argv[])
 	    time_atomic += omp_get_wtime() - start_time;
     }
   }
+
+  printf("====================== RESULTS ======================\n");
   printf("Sequential sum = %f\n", sum_sequential / Q);
   printf("Reduction sum = %f\n", sum_reduction / Q);
   printf("Critical sum = %f\n", sum_critical / Q);
@@ -129,6 +122,7 @@ int main(int argc, char* argv[])
   printf("Reduction acceleration: %f\n", time_sequential / time_reduction);
   printf("Critical acceleration: %f\n", time_sequential / time_critical);
   printf("Atomic acceleration: %f\n", time_sequential / time_atomic);
+  printf("=====================================================\n");
 	return 0;
 }
 
