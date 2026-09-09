@@ -1,5 +1,6 @@
 #include <omp.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define NUM_OF_VECTORS 3
 #define NMAX 100000
@@ -19,8 +20,10 @@ int main(int argc, char* argv[])
 
 	omp_set_num_threads(NUM_OF_THREADS);
 	
-	double a[NUM_OF_VECTORS][NMAX];
+	double **a;
+	a = malloc(sizeof(*a) * NUM_OF_VECTORS);
   for (int i = 0; i < NUM_OF_VECTORS; ++i) {
+    a[i] = malloc(sizeof(**a) * NMAX);
 	  for (int j = 0; j < NMAX; ++j) {
 	    a[i][j] = 1.0;
 	  }

@@ -1,14 +1,19 @@
 #include <stdio.h>
 #include <mpi.h>
+#include <stdlib.h>
 
 #define NUM_OF_VECTORS 3
-#define NMAX 4000
+#define NMAX 100000
 #define ITER_NUM 20
 #define Q 20
 
 int main(int argc, char* argv[]) {
-	double a[NUM_OF_VECTORS][NMAX];
-  
+  double **a;
+	a = malloc(sizeof(*a) * NUM_OF_VECTORS);
+  for (int i = 0; i < NUM_OF_VECTORS; ++i) {
+    a[i] = malloc(sizeof(**a) * NMAX);
+  }
+
 	double total_sum_sequential = 0.0, total_sum_pp, total_sum_reduce, process_sum = 0.0;
 	int process_rank, process_num;
 	MPI_Status status;
