@@ -26,11 +26,11 @@ int main(int argc, char* argv[])
 	  }
   }
 
-  double time_init = 0, time_sequential = 0, time_reduction = 0, time_critical = 0, time_atomic = 0, start_time;
+  double time_init = 0.0, time_sequential = 0.0, time_reduction = 0.0, time_critical = 0.0, time_atomic = 0.0, start_time;
   double sum_sequential, sum_reduction, sum_critical, sum_atomic;
 
   for (int iteration = 0; iteration < ITER_NUM; ++iteration) {
-    sum_sequential = sum_reduction = sum_critical = sum_atomic = 0;
+    sum_sequential = sum_reduction = sum_critical = sum_atomic = 0.0;
 	  start_time = omp_get_wtime();
 
 	  for (int i = 0; i < NUM_OF_VECTORS; ++i) {
