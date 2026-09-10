@@ -3,8 +3,7 @@
 
 #define NUM_OF_THREADS 16
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 	omp_set_num_threads(NUM_OF_THREADS);
 	int nThreads, threadNum;
 	
