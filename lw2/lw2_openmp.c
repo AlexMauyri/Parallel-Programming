@@ -32,7 +32,7 @@ typedef struct {
 
 double g_sum_reduction = 0.0;
 
-int vectors_init(vectors *v, size_t size) {
+int vectors_malloc(vectors *v, size_t size) {
     v->vec_1 = malloc(sizeof(double) * size);
     v->vec_2 = malloc(sizeof(double) * size);
     v->vec_3 = malloc(sizeof(double) * size);
@@ -43,6 +43,13 @@ int vectors_init(vectors *v, size_t size) {
     }
 
     return 0;
+}
+
+void vectors_free(vectors *v) {
+    free(v->vec_1);
+    free(v->vec_2);
+    free(v->vec_3);
+    v->size = 0;
 }
 
 void print_initial_data() {
@@ -146,7 +153,7 @@ int main(int argc, char* argv[]) {
     omp_set_num_threads(NUM_OF_THREADS);
 
     vectors v;
-    if (vectors_init(&v, NMAX)) {
+    if (vectors_malloc(&v, NMAX)) {
         fprintf(stderr, "Error: memory not allocated for vectors\n");
         return -1;
     }
@@ -210,9 +217,7 @@ int main(int argc, char* argv[]) {
     normalize_results(&sums, &stats);
     print_final_results(&sums, &stats);
 
-    free(v.vec_1);
-    free(v.vec_2);
-    free(v.vec_3);
+    vectors_free(&v); 
 
     return 0;
 }

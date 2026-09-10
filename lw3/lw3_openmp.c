@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NMAX 10200
+#define NMAX 1020000
 #define NUM_OF_THREADS 8
 #define ITER_NUM 20
 #define Q 20
@@ -12,6 +12,7 @@ typedef struct {
     double *vec_1;
     double *vec_2;
     double *vec_3;
+    size_t size;
 } vectors;
 
 typedef struct {
@@ -19,7 +20,8 @@ typedef struct {
     double *sum_static;
     double *sum_dynamic;
     double *sum_guided;
-} sum_arrays;
+    size_t size;
+} sum_vectors;
 
 typedef struct {
     double time_sequential;
@@ -28,6 +30,48 @@ typedef struct {
     double time_dynamic;
     double time_guided;
 } elapsed_time_stats;
+
+int vectors_malloc(vectors *v, size_t size) {
+    v->vec_1 = malloc(sizeof(double) * size);
+    v->vec_2 = malloc(sizeof(double) * size);
+    v->vec_3 = malloc(sizeof(double) * size);
+    v->size = size;
+
+    if (!v->vec_1 || !v->vec_2 || !v->vec_3) {
+        return -1;
+    }
+
+    return 0;
+}
+
+void vectors_free(vectors *v) {
+    free(v->vec_1);
+    free(v->vec_2);
+    free(v->vec_3);
+    v->size = 0;
+}
+
+int sum_vectors_malloc(sum_vectors *sums, size_t size) {
+    sums->sum_sequential = malloc(sizeof(double) * size);
+    sums->sum_static = malloc(sizeof(double) * size);
+    sums->sum_dynamic = malloc(sizeof(double) * size);
+    sums->sum_guided = malloc(sizeof(double) * size);
+    sums->size = size;
+
+    if (!sums->sum_sequential || !sums->sum_static || !sums->sum_dynamic || !sums->sum_guided) {
+        return -1;
+    }
+
+    return 0;
+}
+
+void sum_vectors_free(sum_vectors *sums) {
+    free(sums->sum_sequential);
+    free(sums->sum_static);
+    free(sums->sum_dynamic);
+    free(sums->sum_guided);
+    sums->size = 0;
+}
 
 void print_initial_data() {
     printf("====================== PARAMS =======================\n");
@@ -39,38 +83,38 @@ void print_initial_data() {
     printf("=====================================================\n");
 }
 
-void print_final_results(sum_arrays *sums, elapsed_time_stats *stats) {
+void print_final_results(sum_vectors *sums, elapsed_time_stats *stats) {
     printf("====================== RESULTS ======================\n");
-    printf("Static sum is equal sequential sum: %s\n",
-           memcmp(sums->sum_sequential, sums->sum_static, NMAX * sizeof(double)) ? "No" : "Yes");
-    printf("Dynamic sum is equal sequential sum: %s\n",
-           memcmp(sums->sum_sequential, sums->sum_dynamic, NMAX * sizeof(double)) ? "No" : "Yes");
-    printf("Guided sum is equal sequential sum: %s\n\n",
-           memcmp(sums->sum_sequential, sums->sum_guided, NMAX * sizeof(double)) ? "No" : "Yes");
+    printf("Static sum is equal to sequential sum: %s\n",
+           memcmp(sums->sum_sequential, sums->sum_static, sums->size * sizeof(double)) ? "No" : "Yes");
+    printf("Dynamic sum is equal to sequential sum: %s\n",
+           memcmp(sums->sum_sequential, sums->sum_dynamic, sums->size * sizeof(double)) ? "No" : "Yes");
+    printf("Guided sum is equal to sequential sum: %s\n\n",
+           memcmp(sums->sum_sequential, sums->sum_guided, sums->size * sizeof(double)) ? "No" : "Yes");
 
-    printf("Sequential time = %f\n", stats->time_sequential);
-    printf("Initialization time = %f\n", stats->time_initialization);
-    printf("Static time = %f\n", stats->time_static);
-    printf("Dynamic time = %f\n", stats->time_dynamic);
-    printf("Guided time = %f\n\n", stats->time_guided);
+    printf("Sequential time = %.4f ms\n", stats->time_sequential * 1000);
+    printf("Initialization time = %.4f ms\n", stats->time_initialization * 1000);
+    printf("Static time = %.4f ms\n", stats->time_static * 1000);
+    printf("Dynamic time = %.4f ms\n", stats->time_dynamic * 1000);
+    printf("Guided time = %.4f ms\n\n", stats->time_guided * 1000);
 
     printf("With initialization:\n");
-    printf("Static acceleration: %f\n",
+    printf("Static acceleration: %.4f\n",
            stats->time_sequential / (stats->time_initialization + stats->time_static));
-    printf("Dynamic acceleration: %f\n",
+    printf("Dynamic acceleration: %.4f\n",
            stats->time_sequential / (stats->time_initialization + stats->time_dynamic));
-    printf("Guided acceleration: %f\n\n",
+    printf("Guided acceleration: %.4f\n\n",
            stats->time_sequential / (stats->time_initialization + stats->time_guided));
 
     printf("Without initialization:\n");
-    printf("Static acceleration: %f\n", stats->time_sequential / stats->time_static);
-    printf("Dynamic acceleration: %f\n", stats->time_sequential / stats->time_dynamic);
-    printf("Guided acceleration: %f\n", stats->time_sequential / stats->time_guided);
+    printf("Static acceleration: %.4f\n", stats->time_sequential / stats->time_static);
+    printf("Dynamic acceleration: %.4f\n", stats->time_sequential / stats->time_dynamic);
+    printf("Guided acceleration: %.4f\n", stats->time_sequential / stats->time_guided);
     printf("=====================================================\n");
 }
 
 void sum_sequential_for(vectors *v, double *sum_sequential) {
-    for (int j = 0; j < NMAX; ++j) {
+    for (size_t j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             sum_sequential[j] += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
@@ -79,7 +123,7 @@ void sum_sequential_for(vectors *v, double *sum_sequential) {
 
 void sum_static_for(vectors *v, double *sum_static) {
     #pragma omp for schedule(static)
-    for (int j = 0; j < NMAX; ++j) {
+    for (size_t j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             sum_static[j] += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
@@ -88,7 +132,7 @@ void sum_static_for(vectors *v, double *sum_static) {
 
 void sum_dynamic_for(vectors *v, double *sum_dynamic) {
     #pragma omp for schedule(dynamic)
-    for (int j = 0; j < NMAX; ++j) {
+    for (size_t j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             sum_dynamic[j] += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
@@ -97,15 +141,15 @@ void sum_dynamic_for(vectors *v, double *sum_dynamic) {
 
 void sum_guided_for(vectors *v, double *sum_guided) {
     #pragma omp for schedule(guided)
-    for (int j = 0; j < NMAX; ++j) {
+    for (size_t j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             sum_guided[j] += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
     }
 }
 
-void normalize_results(sum_arrays *sums, elapsed_time_stats *stats) {
-    for (int j = 0; j < NMAX; ++j) {
+void normalize_results(sum_vectors *sums, elapsed_time_stats *stats) {
+    for (size_t j = 0; j < sums->size; ++j) {
         sums->sum_sequential[j] /= Q;
         sums->sum_static[j] /= Q;
         sums->sum_dynamic[j] /= Q;
@@ -125,17 +169,18 @@ int main(int argc, char* argv[]) {
     omp_set_num_threads(NUM_OF_THREADS);
 
     vectors v;
-    v.vec_1 = malloc(sizeof(double) * NMAX);
-    v.vec_2 = malloc(sizeof(double) * NMAX);
-    v.vec_3 = malloc(sizeof(double) * NMAX);
+    if (vectors_malloc(&v, NMAX)) {
+        fprintf(stderr, "Error: memory not allocated for vectors!\n");
+        return -1;
+    }
 
-    sum_arrays sums;
-    sums.sum_sequential = malloc(sizeof(double) * NMAX);
-    sums.sum_static = malloc(sizeof(double) * NMAX);
-    sums.sum_dynamic = malloc(sizeof(double) * NMAX);
-    sums.sum_guided = malloc(sizeof(double) * NMAX);
+    sum_vectors sums;
+    if (sum_vectors_malloc(&sums, NMAX)) {
+        fprintf(stderr, "Error: memory not allocated for sum vectors!\n");
+        return -1;
+    } 
 
-    for (int j = 0; j < NMAX; ++j) {
+    for (size_t j = 0; j < v.size; ++j) {
         v.vec_1[j] = 1.0;
         v.vec_2[j] = 1.0;
         v.vec_3[j] = 1.0;
@@ -147,10 +192,10 @@ int main(int argc, char* argv[]) {
     memset(&stats, 0, sizeof(stats));
 
     for (int iteration = 0; iteration < ITER_NUM; ++iteration) {
-        memset(sums.sum_sequential, 0, NMAX * sizeof(double));
-        memset(sums.sum_static, 0, NMAX * sizeof(double));
-        memset(sums.sum_dynamic, 0, NMAX * sizeof(double));
-        memset(sums.sum_guided, 0, NMAX * sizeof(double));
+        memset(sums.sum_sequential, 0, sums.size * sizeof(double));
+        memset(sums.sum_static, 0, sums.size * sizeof(double));
+        memset(sums.sum_dynamic, 0, sums.size * sizeof(double));
+        memset(sums.sum_guided, 0, sums.size * sizeof(double));
 
         start_time = omp_get_wtime();
         sum_sequential_for(&v, sums.sum_sequential);
@@ -195,14 +240,7 @@ int main(int argc, char* argv[]) {
     normalize_results(&sums, &stats);
     print_final_results(&sums, &stats);
 
-    free(v.vec_1);
-    free(v.vec_2);
-    free(v.vec_3);
-
-    free(sums.sum_sequential);
-    free(sums.sum_static);
-    free(sums.sum_dynamic);
-    free(sums.sum_guided);
-
+    vectors_free(&v);
+    sum_vectors_free(&sums);
     return 0;
 }

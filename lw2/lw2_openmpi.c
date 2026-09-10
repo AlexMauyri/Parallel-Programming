@@ -27,7 +27,7 @@ typedef struct {
     double time_reduce;
 } elapsed_time_stats;
 
-int vectors_init(vectors *v, size_t size) {
+int vectors_malloc(vectors *v, size_t size) {
     v->vec_1 = malloc(sizeof(double) * size);
     v->vec_2 = malloc(sizeof(double) * size);
     v->vec_3 = malloc(sizeof(double) * size);
@@ -38,6 +38,13 @@ int vectors_init(vectors *v, size_t size) {
     }
 
     return 0;
+}
+
+void vectors_free(vectors *v) {
+    free(v->vec_1);
+    free(v->vec_2);
+    free(v->vec_3);
+    v->size = 0;
 }
 
 void print_initial_data() {
@@ -142,7 +149,7 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
 
     vectors v;
-    if (vectors_init(&v, NMAX)) {
+    if (vectors_malloc(&v, NMAX)) {
         fprintf(stderr, "Error: memory not allocated for vectors in process %d\n", process_rank);
         return -1;
     }
@@ -204,9 +211,7 @@ int main(int argc, char* argv[]) {
         print_final_results(&sums, &stats);
     }
 
-    free(v.vec_1);
-    free(v.vec_2);
-    free(v.vec_3);
+    vectors_free(&v);
 
     MPI_Finalize();
     return 0;
