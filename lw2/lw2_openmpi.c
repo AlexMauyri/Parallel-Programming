@@ -14,15 +14,17 @@ typedef struct {
 } vectors;
 
 typedef struct {
+  double sum_sequential;
+  double sum_pp;
+  double sum_reduce;
+} sum_results;
+
+typedef struct {
   double time_sequential;
   double time_broadcast;
   double time_pp;
   double time_reduce;
 } elapsed_time_stats;
-
-double g_sum_sequential = 0.0;
-double g_sum_pp = 0.0;
-double g_sum_reduce = 0.0;
 
 void print_initial_data() {
     printf("====================== PARAMS =======================\n");
@@ -33,11 +35,11 @@ void print_initial_data() {
     printf("=====================================================\n");
 }
 
-void print_final_results(elapsed_time_stats *stats) {
+void print_final_results(sum_results *sums, elapsed_time_stats *stats) {
     printf("====================== RESULTS ======================\n");
-    printf("Sequential sum = %f\n", g_sum_sequential);
-    printf("P2P sum = %f\n", g_sum_pp);
-    printf("Reduce sum = %f\n\n", g_sum_reduce);
+    printf("Sequential sum = %f\n", sums->sum_sequential);
+    printf("P2P sum = %f\n", sums->sum_pp);
+    printf("Reduce sum = %f\n\n", sums->sum_reduce);
 
     printf("Sequential time = %f\n", stats->time_sequential);
     printf("Broadcast time = %f\n", stats->time_broadcast);
@@ -56,16 +58,17 @@ void print_final_results(elapsed_time_stats *stats) {
     printf("=====================================================\n");
 }
 
-void sum_sequential(vectors *v) {
-    g_sum_sequential = 0.0;
+void sum_sequential(vectors *v, sum_results *sums) {
+    sums->sum_sequential = 0.0;
     for (int j = 0; j < NMAX; ++j) {
         for (int q = 0; q < Q; ++q) {
-            g_sum_sequential += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
+            sums->sum_sequential += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
     }
 }
 
-void sum_pp(vectors *v, int j1, int j2, int process_rank, int process_num) {
+void sum_pp(vectors *v, int j1, int j2, int process_rank, int process_num,
+            sum_results *sums) {
     double process_sum = 0.0;
     MPI_Status status;
 
@@ -76,11 +79,11 @@ void sum_pp(vectors *v, int j1, int j2, int process_rank, int process_num) {
     }
 
     if (process_rank == 0) {
-        g_sum_pp = process_sum;
+        sums->sum_pp = process_sum;
         for (int i = 1; i < process_num; ++i) {
             double recv_val = 0.0;
             MPI_Recv(&recv_val, 1, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &status);
-            g_sum_pp += recv_val;
+            sums->sum_pp += recv_val;
         }
     }
     else {
@@ -88,7 +91,8 @@ void sum_pp(vectors *v, int j1, int j2, int process_rank, int process_num) {
     }
 }
 
-void sum_reduce(vectors *v, int j1, int j2, int process_rank) {
+void sum_reduce(vectors *v, int j1, int j2, int process_rank,
+                sum_results *sums) {
     double process_sum = 0.0;
 
     for (int j = j1; j < j2; ++j) {
@@ -101,14 +105,14 @@ void sum_reduce(vectors *v, int j1, int j2, int process_rank) {
     MPI_Reduce(&process_sum, &reduce_result, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if (process_rank == 0) {
-        g_sum_reduce = reduce_result;
+        sums->sum_reduce = reduce_result;
     }
 }
 
-void normalize_results(elapsed_time_stats *stats) {
-    g_sum_sequential /= Q;
-    g_sum_pp /= Q;
-    g_sum_reduce /= Q;
+void normalize_results(sum_results *sums, elapsed_time_stats *stats) {
+    sums->sum_sequential /= Q;
+    sums->sum_pp /= Q;
+    sums->sum_reduce /= Q;
 
     stats->time_sequential /= ITER_NUM;
     stats->time_broadcast /= ITER_NUM;
@@ -116,9 +120,9 @@ void normalize_results(elapsed_time_stats *stats) {
     stats->time_reduce /= ITER_NUM;
 }
 
-
 int main(int argc, char* argv[]) {
     vectors v;
+    sum_results sums;
     int process_rank, process_num;
     elapsed_time_stats stats;
     double start_time;
@@ -151,13 +155,13 @@ int main(int argc, char* argv[]) {
     }
 
     for (int iteration = 0; iteration < ITER_NUM; ++iteration) {
-        g_sum_sequential = 0.0;
-        g_sum_pp = 0.0;
-        g_sum_reduce = 0.0;
+        sums.sum_sequential = 0.0;
+        sums.sum_pp = 0.0;
+        sums.sum_reduce = 0.0;
 
         if (process_rank == 0) {
             start_time = MPI_Wtime();
-            sum_sequential(&v);
+            sum_sequential(&v, &sums);
             stats.time_sequential += MPI_Wtime() - start_time;
         }
 
@@ -170,21 +174,21 @@ int main(int argc, char* argv[]) {
         MPI_Barrier(MPI_COMM_WORLD);
 
         start_time = MPI_Wtime();
-        sum_pp(&v, j1, j2, process_rank, process_num);
+        sum_pp(&v, j1, j2, process_rank, process_num, &sums);
         stats.time_pp += MPI_Wtime() - start_time;
 
         MPI_Barrier(MPI_COMM_WORLD);
 
         start_time = MPI_Wtime();
-        sum_reduce(&v, j1, j2, process_rank);
+        sum_reduce(&v, j1, j2, process_rank, &sums);
         stats.time_reduce += MPI_Wtime() - start_time;
 
         MPI_Barrier(MPI_COMM_WORLD);
     }
 
     if (process_rank == 0) {
-        normalize_results(&stats);
-        print_final_results(&stats);
+        normalize_results(&sums, &stats);
+        print_final_results(&sums, &stats);
     }
 
     free(v.vec_1);
