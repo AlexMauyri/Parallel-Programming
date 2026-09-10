@@ -3,7 +3,7 @@
 
 int main(int argc, char* argv[])
 {
-	int rank, ranksize, i;
+	int rank, ranksize;
 	MPI_Init(&argc, &argv);
 
 	double start_time = MPI_Wtime();

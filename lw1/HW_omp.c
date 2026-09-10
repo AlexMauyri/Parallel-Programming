@@ -1,15 +1,16 @@
 #include <omp.h>
 #include <stdio.h>
 
+#define NUM_OF_THREADS 16
 
 int main(int argc, char* argv[])
 {
-	omp_set_num_threads(16);
+	omp_set_num_threads(NUM_OF_THREADS);
 	int nThreads, threadNum;
 	
 	double start_time = omp_get_wtime();
 	
-	#pragma omp parallel  private(nThreads, threadNum)
+	#pragma omp parallel private(nThreads, threadNum)
 	{
 		nThreads = omp_get_num_threads(); 
 		threadNum = omp_get_thread_num(); 
