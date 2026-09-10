@@ -8,23 +8,37 @@
 #define Q 20
 
 typedef struct {
-  double *vec_1;
-  double *vec_2;
-  double *vec_3;
+    double *vec_1;
+    double *vec_2;
+    double *vec_3;
+    size_t size;
 } vectors;
 
 typedef struct {
-  double sum_sequential;
-  double sum_pp;
-  double sum_reduce;
+    double sum_sequential;
+    double sum_pp;
+    double sum_reduce;
 } sum_results;
 
 typedef struct {
-  double time_sequential;
-  double time_broadcast;
-  double time_pp;
-  double time_reduce;
+    double time_sequential;
+    double time_broadcast;
+    double time_pp;
+    double time_reduce;
 } elapsed_time_stats;
+
+int vectors_init(vectors *v, size_t size) {
+    v->vec_1 = malloc(sizeof(double) * size);
+    v->vec_2 = malloc(sizeof(double) * size);
+    v->vec_3 = malloc(sizeof(double) * size);
+    v->size = size;
+
+    if (!v->vec_1 || !v->vec_2 || !v->vec_3) {
+        return -1;
+    }
+
+    return 0;
+}
 
 void print_initial_data() {
     printf("====================== PARAMS =======================\n");
@@ -37,30 +51,30 @@ void print_initial_data() {
 
 void print_final_results(sum_results *sums, elapsed_time_stats *stats) {
     printf("====================== RESULTS ======================\n");
-    printf("Sequential sum = %f\n", sums->sum_sequential);
-    printf("P2P sum = %f\n", sums->sum_pp);
-    printf("Reduce sum = %f\n\n", sums->sum_reduce);
+    printf("Sequential sum = %.2f\n", sums->sum_sequential);
+    printf("P2P sum = %.2f\n", sums->sum_pp);
+    printf("Reduce sum = %.2f\n\n", sums->sum_reduce);
 
-    printf("Sequential time = %f\n", stats->time_sequential);
-    printf("Broadcast time = %f\n", stats->time_broadcast);
-    printf("P2P time = %f\n", stats->time_pp);
-    printf("Reduce time = %f\n\n", stats->time_reduce);
+    printf("Sequential time = %.4f ms\n", stats->time_sequential * 1000);
+    printf("Broadcast time = %.4f ms\n", stats->time_broadcast * 1000);
+    printf("P2P time = %.4f ms\n", stats->time_pp * 1000);
+    printf("Reduce time = %.4f ms\n\n", stats->time_reduce * 1000);
 
     printf("With broadcast:\n");
-    printf("P2P acceleration: %f\n",
+    printf("P2P acceleration: %.4f\n",
            stats->time_sequential / (stats->time_broadcast + stats->time_pp));
-    printf("Reduce acceleration: %f\n\n",
+    printf("Reduce acceleration: %.4f\n\n",
            stats->time_sequential / (stats->time_broadcast + stats->time_reduce));
 
     printf("Without broadcast:\n");
-    printf("P2P acceleration: %f\n", stats->time_sequential / stats->time_pp);
-    printf("Reduce acceleration: %f\n", stats->time_sequential / stats->time_reduce);
+    printf("P2P acceleration: %.4f\n", stats->time_sequential / stats->time_pp);
+    printf("Reduce acceleration: %.4f\n", stats->time_sequential / stats->time_reduce);
     printf("=====================================================\n");
 }
 
 void sum_sequential(vectors *v, sum_results *sums) {
     sums->sum_sequential = 0.0;
-    for (int j = 0; j < NMAX; ++j) {
+    for (int j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             sums->sum_sequential += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
@@ -121,43 +135,42 @@ void normalize_results(sum_results *sums, elapsed_time_stats *stats) {
 }
 
 int main(int argc, char* argv[]) {
-    vectors v;
-    sum_results sums;
     int process_rank, process_num;
-    elapsed_time_stats stats;
-    double start_time;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &process_num);
     MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
 
-    memset(&stats, 0, sizeof(stats));
-
-    v.vec_1 = malloc(sizeof(double) * NMAX);
-    v.vec_2 = malloc(sizeof(double) * NMAX);
-    v.vec_3 = malloc(sizeof(double) * NMAX);
-
+    vectors v;
+    if (vectors_init(&v, NMAX)) {
+        fprintf(stderr, "Error: memory not allocated for vectors in process %d\n", process_rank);
+        return -1;
+    }
+    
     if (process_rank == 0) {
         print_initial_data();
-        for (int j = 0; j < NMAX; ++j) {
+        for (int j = 0; j < v.size; ++j) {
             v.vec_1[j] = 1.0;
             v.vec_2[j] = 1.0;
             v.vec_3[j] = 1.0;
         }
     }
 
-    int k = NMAX / process_num;
+    int k = v.size / process_num;
     int j1 = k * process_rank;
     int j2 = k * (process_rank + 1);
 
     if (process_rank == process_num - 1) {
-        j2 = NMAX;
+        j2 = v.size;
     }
+    
+    double start_time;
+    sum_results sums;
+    elapsed_time_stats stats;
+    memset(&stats, 0, sizeof(stats));
 
     for (int iteration = 0; iteration < ITER_NUM; ++iteration) {
-        sums.sum_sequential = 0.0;
-        sums.sum_pp = 0.0;
-        sums.sum_reduce = 0.0;
+        memset(&sums, 0, sizeof(sums));
 
         if (process_rank == 0) {
             start_time = MPI_Wtime();

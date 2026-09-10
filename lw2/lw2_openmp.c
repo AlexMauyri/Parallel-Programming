@@ -9,27 +9,41 @@
 #define Q 20
 
 typedef struct {
-  double *vec_1;
-  double *vec_2;
-  double *vec_3;
+    double *vec_1;
+    double *vec_2;
+    double *vec_3;
+    size_t size;
 } vectors;
 
 typedef struct {
-  double sum_sequential;
-  double sum_reduction;
-  double sum_critical;
-  double sum_atomic;
+    double sum_sequential;
+    double sum_reduction;
+    double sum_critical;
+    double sum_atomic;
 } sum_results;
 
 typedef struct {
-  double time_sequential;
-  double time_initialization;
-  double time_reduction;
-  double time_critical;
-  double time_atomic;
+    double time_sequential;
+    double time_initialization;
+    double time_reduction;
+    double time_critical;
+    double time_atomic;
 } elapsed_time_stats;
 
 double g_sum_reduction = 0.0;
+
+int vectors_init(vectors *v, size_t size) {
+    v->vec_1 = malloc(sizeof(double) * size);
+    v->vec_2 = malloc(sizeof(double) * size);
+    v->vec_3 = malloc(sizeof(double) * size);
+    v->size = size;
+
+    if (!v->vec_1 || !v->vec_2 || !v->vec_3) {
+        return -1;
+    }
+
+    return 0;
+}
 
 void print_initial_data() {
     printf("====================== PARAMS =======================\n");
@@ -43,53 +57,55 @@ void print_initial_data() {
 
 void print_final_results(sum_results *sums, elapsed_time_stats *stats) {
     printf("====================== RESULTS ======================\n");
-    printf("Sequential sum = %f\n", sums->sum_sequential);
-    printf("Reduction sum = %f\n", sums->sum_reduction);
-    printf("Critical sum = %f\n", sums->sum_critical);
-    printf("Atomic sum = %f\n\n", sums->sum_atomic);
+    printf("Sequential sum = %.2f\n", sums->sum_sequential);
+    printf("Reduction sum = %.2f\n", sums->sum_reduction);
+    printf("Critical sum = %.2f\n", sums->sum_critical);
+    printf("Atomic sum = %.2f\n\n", sums->sum_atomic);
 
-    printf("Sequential time = %f\n", stats->time_sequential);
-    printf("Initialization time = %f\n", stats->time_initialization);
-    printf("Reduction time = %f\n", stats->time_reduction);
-    printf("Critical time = %f\n", stats->time_critical);
-    printf("Atomic time = %f\n\n", stats->time_atomic);
+    printf("Sequential time = %.4f ms\n", stats->time_sequential * 1000);
+    printf("Initialization time = %.4f ms\n", stats->time_initialization * 1000);
+    printf("Reduction time = %.4f ms\n", stats->time_reduction * 1000);
+    printf("Critical time = %.4f ms\n", stats->time_critical * 1000);
+    printf("Atomic time = %.4f ms\n\n", stats->time_atomic * 1000);
 
     printf("With initialization:\n");
-    printf("Reduction acceleration: %f\n",
+    printf("Reduction acceleration: %.4f\n",
            stats->time_sequential / (stats->time_initialization + stats->time_reduction));
-    printf("Critical acceleration: %f\n",
+    printf("Critical acceleration: %.4f\n",
            stats->time_sequential / (stats->time_initialization + stats->time_critical));
-    printf("Atomic acceleration: %f\n\n",
+    printf("Atomic acceleration: %.4f\n\n",
            stats->time_sequential / (stats->time_initialization + stats->time_atomic));
 
     printf("Without initialization:\n");
-    printf("Reduction acceleration: %f\n", stats->time_sequential / stats->time_reduction);
-    printf("Critical acceleration: %f\n", stats->time_sequential / stats->time_critical);
-    printf("Atomic acceleration: %f\n", stats->time_sequential / stats->time_atomic);
+    printf("Reduction acceleration: %.4f\n", stats->time_sequential / stats->time_reduction);
+    printf("Critical acceleration: %.4f\n", stats->time_sequential / stats->time_critical);
+    printf("Atomic acceleration: %.4f\n", stats->time_sequential / stats->time_atomic);
     printf("=====================================================\n");
 }
 
 void sum_sequential_for(vectors *v, sum_results *sums) {
     sums->sum_sequential = 0.0;
-    for (int j = 0; j < NMAX; ++j) {
+    for (int j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             sums->sum_sequential += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
     }
 }
 
-void sum_reduction_for(vectors *v) {
+void sum_reduction_for(vectors *v, sum_results *sums) {
     #pragma omp for collapse(2) reduction(+:g_sum_reduction)
-    for (int j = 0; j < NMAX; ++j) {
+    for (int j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             g_sum_reduction += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
     }
+    #pragma omp single
+    sums->sum_reduction = g_sum_reduction;
 }
 
 void sum_critical_for(vectors *v, sum_results *sums) {
     #pragma omp for collapse(2)
-    for (int j = 0; j < NMAX; ++j) {
+    for (int j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             double val = v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
             #pragma omp critical
@@ -102,7 +118,7 @@ void sum_critical_for(vectors *v, sum_results *sums) {
 
 void sum_atomic_for(vectors *v, sum_results *sums) {
     #pragma omp for collapse(2)
-    for (int j = 0; j < NMAX; ++j) {
+    for (int j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             double val = v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
             #pragma omp atomic
@@ -130,11 +146,12 @@ int main(int argc, char* argv[]) {
     omp_set_num_threads(NUM_OF_THREADS);
 
     vectors v;
-    v.vec_1 = malloc(sizeof(double) * NMAX);
-    v.vec_2 = malloc(sizeof(double) * NMAX);
-    v.vec_3 = malloc(sizeof(double) * NMAX);
+    if (vectors_init(&v, NMAX)) {
+        fprintf(stderr, "Error: memory not allocated for vectors\n");
+        return -1;
+    }
 
-    for (int j = 0; j < NMAX; ++j) {
+    for (int j = 0; j < v.size; ++j) {
         v.vec_1[j] = 1.0;
         v.vec_2[j] = 1.0;
         v.vec_3[j] = 1.0;
@@ -147,10 +164,7 @@ int main(int argc, char* argv[]) {
     memset(&stats, 0, sizeof(stats));
 
     for (int iteration = 0; iteration < ITER_NUM; ++iteration) {
-        sums.sum_sequential = 0.0;
-        sums.sum_reduction = 0.0;
-        sums.sum_critical = 0.0;
-        sums.sum_atomic = 0.0;
+        memset(&sums, 0, sizeof(sums));
         g_sum_reduction = 0.0;
 
         start_time = omp_get_wtime();
@@ -168,7 +182,7 @@ int main(int argc, char* argv[]) {
                 start_time = omp_get_wtime();
             }
 
-            sum_reduction_for(&v);
+            sum_reduction_for(&v, &sums);
 
             #pragma omp single
             {
@@ -191,8 +205,6 @@ int main(int argc, char* argv[]) {
                 stats.time_atomic += omp_get_wtime() - start_time;
             }
         }
-
-        sums.sum_reduction = g_sum_reduction;
     }
 
     normalize_results(&sums, &stats);
