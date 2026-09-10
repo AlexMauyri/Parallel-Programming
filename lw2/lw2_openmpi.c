@@ -74,19 +74,19 @@ void print_final_results(sum_results *sums, elapsed_time_stats *stats) {
 
 void sum_sequential(vectors *v, sum_results *sums) {
     sums->sum_sequential = 0.0;
-    for (int j = 0; j < v->size; ++j) {
+    for (size_t j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             sums->sum_sequential += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
     }
 }
 
-void sum_pp(vectors *v, int j1, int j2, int process_rank, int process_num,
+void sum_pp(vectors *v, size_t j1, size_t j2, int process_rank, int process_num,
             sum_results *sums) {
     double process_sum = 0.0;
     MPI_Status status;
 
-    for (int j = j1; j < j2; ++j) {
+    for (size_t j = j1; j < j2; ++j) {
         for (int q = 0; q < Q; ++q) {
             process_sum += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
@@ -105,11 +105,11 @@ void sum_pp(vectors *v, int j1, int j2, int process_rank, int process_num,
     }
 }
 
-void sum_reduce(vectors *v, int j1, int j2, int process_rank,
+void sum_reduce(vectors *v, size_t j1, size_t j2, int process_rank,
                 sum_results *sums) {
     double process_sum = 0.0;
 
-    for (int j = j1; j < j2; ++j) {
+    for (size_t j = j1; j < j2; ++j) {
         for (int q = 0; q < Q; ++q) {
             process_sum += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
@@ -149,16 +149,16 @@ int main(int argc, char* argv[]) {
     
     if (process_rank == 0) {
         print_initial_data();
-        for (int j = 0; j < v.size; ++j) {
+        for (size_t j = 0; j < v.size; ++j) {
             v.vec_1[j] = 1.0;
             v.vec_2[j] = 1.0;
             v.vec_3[j] = 1.0;
         }
     }
 
-    int k = v.size / process_num;
-    int j1 = k * process_rank;
-    int j2 = k * (process_rank + 1);
+    size_t k = v.size / process_num;
+    size_t j1 = k * process_rank;
+    size_t j2 = k * (process_rank + 1);
 
     if (process_rank == process_num - 1) {
         j2 = v.size;

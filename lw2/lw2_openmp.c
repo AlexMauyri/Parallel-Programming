@@ -85,7 +85,7 @@ void print_final_results(sum_results *sums, elapsed_time_stats *stats) {
 
 void sum_sequential_for(vectors *v, sum_results *sums) {
     sums->sum_sequential = 0.0;
-    for (int j = 0; j < v->size; ++j) {
+    for (size_t j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             sums->sum_sequential += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
@@ -94,7 +94,7 @@ void sum_sequential_for(vectors *v, sum_results *sums) {
 
 void sum_reduction_for(vectors *v, sum_results *sums) {
     #pragma omp for collapse(2) reduction(+:g_sum_reduction)
-    for (int j = 0; j < v->size; ++j) {
+    for (size_t j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             g_sum_reduction += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
         }
@@ -105,7 +105,7 @@ void sum_reduction_for(vectors *v, sum_results *sums) {
 
 void sum_critical_for(vectors *v, sum_results *sums) {
     #pragma omp for collapse(2)
-    for (int j = 0; j < v->size; ++j) {
+    for (size_t j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             double val = v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
             #pragma omp critical
@@ -118,7 +118,7 @@ void sum_critical_for(vectors *v, sum_results *sums) {
 
 void sum_atomic_for(vectors *v, sum_results *sums) {
     #pragma omp for collapse(2)
-    for (int j = 0; j < v->size; ++j) {
+    for (size_t j = 0; j < v->size; ++j) {
         for (int q = 0; q < Q; ++q) {
             double val = v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
             #pragma omp atomic
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    for (int j = 0; j < v.size; ++j) {
+    for (size_t j = 0; j < v.size; ++j) {
         v.vec_1[j] = 1.0;
         v.vec_2[j] = 1.0;
         v.vec_3[j] = 1.0;
