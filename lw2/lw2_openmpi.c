@@ -27,6 +27,16 @@ typedef struct {
     double time_reduce;
 } elapsed_time_stats;
 
+void vectors_free(vectors *v) {
+    free(v->vec_1);
+    free(v->vec_2);
+    free(v->vec_3);
+    v->vec_1 = NULL;
+    v->vec_2 = NULL;
+    v->vec_3 = NULL;
+    v->size = 0;
+}
+
 int vectors_malloc(vectors *v, size_t size) {
     v->vec_1 = malloc(sizeof(double) * size);
     v->vec_2 = malloc(sizeof(double) * size);
@@ -34,17 +44,11 @@ int vectors_malloc(vectors *v, size_t size) {
     v->size = size;
 
     if (!v->vec_1 || !v->vec_2 || !v->vec_3) {
+        vectors_free(v);
         return -1;
     }
 
     return 0;
-}
-
-void vectors_free(vectors *v) {
-    free(v->vec_1);
-    free(v->vec_2);
-    free(v->vec_3);
-    v->size = 0;
 }
 
 void print_initial_data() {
@@ -212,7 +216,6 @@ int main(int argc, char* argv[]) {
     }
 
     vectors_free(&v);
-
     MPI_Finalize();
     return 0;
 }
