@@ -7,6 +7,8 @@
 #define ITER_NUM 20
 #define Q 20
 
+#define SECONDS_TO_MILLISECONDS(seconds) ((seconds) * 1e3)
+
 typedef struct {
     double *vec_1;
     double *vec_2;
@@ -37,7 +39,7 @@ void vectors_free(vectors *v) {
     v->size = 0;
 }
 
-int vectors_malloc(vectors *v, size_t size) {
+int vectors_malloc(vectors *v, const size_t size) {
     v->vec_1 = malloc(sizeof(double) * size);
     v->vec_2 = malloc(sizeof(double) * size);
     v->vec_3 = malloc(sizeof(double) * size);
@@ -51,7 +53,7 @@ int vectors_malloc(vectors *v, size_t size) {
     return 0;
 }
 
-void print_initial_data() {
+void print_initial_data(void) {
     printf("====================== PARAMS =======================\n");
     printf("Number of vectors: 3\n");
     printf("Number of elements: %d\n", NMAX);
@@ -60,16 +62,16 @@ void print_initial_data() {
     printf("=====================================================\n");
 }
 
-void print_final_results(sum_results *sums, elapsed_time_stats *stats) {
+void print_final_results(const sum_results *sums, const elapsed_time_stats *stats) {
     printf("====================== RESULTS ======================\n");
     printf("Sequential sum = %.2f\n", sums->sum_sequential);
     printf("P2P sum = %.2f\n", sums->sum_pp);
     printf("Reduce sum = %.2f\n\n", sums->sum_reduce);
 
-    printf("Sequential time = %.4f ms\n", stats->time_sequential * 1000);
-    printf("Broadcast time = %.4f ms\n", stats->time_broadcast * 1000);
-    printf("P2P time = %.4f ms\n", stats->time_pp * 1000);
-    printf("Reduce time = %.4f ms\n\n", stats->time_reduce * 1000);
+    printf("Sequential time = %.4f ms\n", stats->time_sequential);
+    printf("Broadcast time = %.4f ms\n", stats->time_broadcast);
+    printf("P2P time = %.4f ms\n", stats->time_pp);
+    printf("Reduce time = %.4f ms\n\n", stats->time_reduce);
 
     printf("With broadcast:\n");
     printf("P2P acceleration: %.4f\n",
@@ -83,23 +85,23 @@ void print_final_results(sum_results *sums, elapsed_time_stats *stats) {
     printf("=====================================================\n");
 }
 
-void sum_sequential(vectors *v, sum_results *sums) {
+void sum_sequential(const vectors *v, sum_results *sums) {
     sums->sum_sequential = 0.0;
-    for (size_t j = 0; j < v->size; ++j) {
+    for (size_t i = 0; i < v->size; ++i) {
         for (int q = 0; q < Q; ++q) {
-            sums->sum_sequential += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
+            sums->sum_sequential += v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
         }
     }
 }
 
-void sum_pp(vectors *v, size_t j1, size_t j2, int process_rank, int process_num,
-            sum_results *sums) {
+void sum_pp(const vectors *v, const size_t i1, const size_t i2, sum_results *sums,
+            const int process_rank, const int process_num) {
     double process_sum = 0.0;
     MPI_Status status;
 
-    for (size_t j = j1; j < j2; ++j) {
+    for (size_t i = i1; i < i2; ++i) {
         for (int q = 0; q < Q; ++q) {
-            process_sum += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
+            process_sum += v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
         }
     }
 
@@ -116,13 +118,13 @@ void sum_pp(vectors *v, size_t j1, size_t j2, int process_rank, int process_num,
     }
 }
 
-void sum_reduce(vectors *v, size_t j1, size_t j2, int process_rank,
-                sum_results *sums) {
+void sum_reduce(const vectors *v, const size_t i1, const size_t i2, sum_results *sums,
+    const int process_rank) {
     double process_sum = 0.0;
 
-    for (size_t j = j1; j < j2; ++j) {
+    for (size_t i = i1; i < i2; ++i) {
         for (int q = 0; q < Q; ++q) {
-            process_sum += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
+            process_sum += v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
         }
     }
 
@@ -152,28 +154,28 @@ int main(int argc, char* argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &process_num);
     MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
 
+    if (process_rank == 0) {
+        print_initial_data();
+    }
+
+    const size_t vector_size = NMAX;
+
     vectors v;
-    if (vectors_malloc(&v, NMAX)) {
+    if (vectors_malloc(&v, vector_size)) {
         fprintf(stderr, "Error: memory not allocated for vectors in process %d\n", process_rank);
         return -1;
     }
-    
     if (process_rank == 0) {
-        print_initial_data();
-        for (size_t j = 0; j < v.size; ++j) {
-            v.vec_1[j] = 1.0;
-            v.vec_2[j] = 1.0;
-            v.vec_3[j] = 1.0;
+        for (size_t i = 0; i < v.size; ++i) {
+            v.vec_1[i] = 1.0;
+            v.vec_2[i] = 1.0;
+            v.vec_3[i] = 1.0;
         }
     }
 
-    size_t k = v.size / process_num;
-    size_t j1 = k * process_rank;
-    size_t j2 = k * (process_rank + 1);
-
-    if (process_rank == process_num - 1) {
-        j2 = v.size;
-    }
+    const size_t k = v.size / process_num;
+    const size_t i1 = k * process_rank;
+    const size_t i2 = process_rank == process_num - 1? v.size : k * (process_rank + 1);
     
     double start_time;
     sum_results sums;
@@ -190,21 +192,21 @@ int main(int argc, char* argv[]) {
         }
 
         start_time = MPI_Wtime();
-        MPI_Bcast(v.vec_1, NMAX, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Bcast(v.vec_2, NMAX, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Bcast(v.vec_3, NMAX, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(v.vec_1, v.size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(v.vec_2, v.size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(v.vec_3, v.size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         stats.time_broadcast += MPI_Wtime() - start_time;
 
         MPI_Barrier(MPI_COMM_WORLD);
 
         start_time = MPI_Wtime();
-        sum_pp(&v, j1, j2, process_rank, process_num, &sums);
+        sum_pp(&v, i1, i2, &sums, process_rank, process_num);
         stats.time_pp += MPI_Wtime() - start_time;
 
         MPI_Barrier(MPI_COMM_WORLD);
 
         start_time = MPI_Wtime();
-        sum_reduce(&v, j1, j2, process_rank, &sums);
+        sum_reduce(&v, i1, i2, &sums, process_rank);
         stats.time_reduce += MPI_Wtime() - start_time;
 
         MPI_Barrier(MPI_COMM_WORLD);

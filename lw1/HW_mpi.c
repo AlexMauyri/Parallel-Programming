@@ -2,15 +2,15 @@
 #include <mpi.h>
 
 int main(int argc, char* argv[]) {
-	int rank, ranksize;
+	int rank, rank_size;
 	MPI_Init(&argc, &argv);
 
 	double start_time = MPI_Wtime();
 	
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &ranksize);
+	MPI_Comm_size(MPI_COMM_WORLD, &rank_size);
 	
-	printf("Hello world from process %d from total number of %d\n", rank, ranksize);
+	printf("Hello world from process %d from total number of %d\n", rank, rank_size);
 
 	double end_time = MPI_Wtime();
 

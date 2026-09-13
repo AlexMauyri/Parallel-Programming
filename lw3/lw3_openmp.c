@@ -10,6 +10,8 @@
 #define Q 20
 #define EPSILON 1e-9
 
+#define SECONDS_TO_MILLISECONDS(seconds) ((seconds) * 1e3)
+
 typedef struct {
     double *vec_1;
     double *vec_2;
@@ -43,7 +45,7 @@ void vectors_free(vectors *v) {
     v->size = 0;
 }
 
-int vectors_malloc(vectors *v, size_t size) {
+int vectors_malloc(vectors *v, const size_t size) {
     v->vec_1 = malloc(sizeof(double) * size);
     v->vec_2 = malloc(sizeof(double) * size);
     v->vec_3 = malloc(sizeof(double) * size);
@@ -69,7 +71,7 @@ void sum_vectors_free(sum_vectors *sums) {
     sums->size = 0;
 }
 
-int sum_vectors_malloc(sum_vectors *sums, size_t size) {
+int sum_vectors_malloc(sum_vectors *sums, const size_t size) {
     sums->sum_sequential = malloc(sizeof(double) * size);
     sums->sum_static = malloc(sizeof(double) * size);
     sums->sum_dynamic = malloc(sizeof(double) * size);
@@ -84,7 +86,7 @@ int sum_vectors_malloc(sum_vectors *sums, size_t size) {
     return 0;
 }
 
-int arrays_equal(const double *a, const double *b, size_t size) {
+int arrays_equal(const double *a, const double *b, const size_t size) {
     for (size_t i = 0; i < size; ++i) {
         if (fabs(a[i] - b[i]) > EPSILON) {
             return 0;
@@ -94,7 +96,7 @@ int arrays_equal(const double *a, const double *b, size_t size) {
     return 1;
 }
 
-void print_initial_data() {
+void print_initial_data(void) {
     printf("====================== PARAMS =======================\n");
     printf("Number of vectors: 3\n");
     printf("Number of elements: %d\n", NMAX);
@@ -105,7 +107,7 @@ void print_initial_data() {
     printf("=====================================================\n");
 }
 
-void print_final_results(sum_vectors *sums, elapsed_time_stats *stats) {
+void print_final_results(const sum_vectors *sums, const elapsed_time_stats *stats) {
     printf("====================== RESULTS ======================\n");
     printf("Static sum is equal to sequential sum: %s\n",
            arrays_equal(sums->sum_sequential, sums->sum_static, sums->size) ? "Yes" : "No");
@@ -114,11 +116,11 @@ void print_final_results(sum_vectors *sums, elapsed_time_stats *stats) {
     printf("Guided sum is equal to sequential sum: %s\n\n",
            arrays_equal(sums->sum_sequential, sums->sum_guided, sums->size) ? "Yes" : "No");
 
-    printf("Sequential time = %.4f ms\n", stats->time_sequential * 1000);
-    printf("Initialization time = %.4f ms\n", stats->time_initialization * 1000);
-    printf("Static time = %.4f ms\n", stats->time_static * 1000);
-    printf("Dynamic time = %.4f ms\n", stats->time_dynamic * 1000);
-    printf("Guided time = %.4f ms\n\n", stats->time_guided * 1000);
+    printf("Sequential time = %.4f ms\n", stats->time_sequential);
+    printf("Initialization time = %.4f ms\n", stats->time_initialization);
+    printf("Static time = %.4f ms\n", stats->time_static);
+    printf("Dynamic time = %.4f ms\n", stats->time_dynamic);
+    printf("Guided time = %.4f ms\n\n", stats->time_guided);
 
     printf("With initialization:\n");
     printf("Static acceleration: %.4f\n",
@@ -135,47 +137,47 @@ void print_final_results(sum_vectors *sums, elapsed_time_stats *stats) {
     printf("=====================================================\n");
 }
 
-void sum_sequential(vectors *v, double *sum_sequential) {
-    for (size_t j = 0; j < v->size; ++j) {
+void sum_sequential(const vectors *v, double *sum_sequential) {
+    for (size_t i = 0; i < v->size; ++i) {
         for (int q = 0; q < Q; ++q) {
-            sum_sequential[j] += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
+            sum_sequential[i] += v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
         }
     }
 }
 
-void sum_static_for(vectors *v, double *sum_static) {
+void sum_static_for(const vectors *v, double *sum_static) {
     #pragma omp for schedule(static)
-    for (size_t j = 0; j < v->size; ++j) {
+    for (size_t i = 0; i < v->size; ++i) {
         for (int q = 0; q < Q; ++q) {
-            sum_static[j] += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
+            sum_static[i] += v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
         }
     }
 }
 
-void sum_dynamic_for(vectors *v, double *sum_dynamic) {
+void sum_dynamic_for(const vectors *v, double *sum_dynamic) {
     #pragma omp for schedule(dynamic)
-    for (size_t j = 0; j < v->size; ++j) {
+    for (size_t i = 0; i < v->size; ++i) {
         for (int q = 0; q < Q; ++q) {
-            sum_dynamic[j] += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
+            sum_dynamic[i] += v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
         }
     }
 }
 
-void sum_guided_for(vectors *v, double *sum_guided) {
+void sum_guided_for(const vectors *v, double *sum_guided) {
     #pragma omp for schedule(guided)
-    for (size_t j = 0; j < v->size; ++j) {
+    for (size_t i = 0; i < v->size; ++i) {
         for (int q = 0; q < Q; ++q) {
-            sum_guided[j] += v->vec_1[j] + v->vec_2[j] + v->vec_3[j];
+            sum_guided[i] += v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
         }
     }
 }
 
 void normalize_results(sum_vectors *sums, elapsed_time_stats *stats) {
-    for (size_t j = 0; j < sums->size; ++j) {
-        sums->sum_sequential[j] /= Q;
-        sums->sum_static[j] /= Q;
-        sums->sum_dynamic[j] /= Q;
-        sums->sum_guided[j] /= Q;
+    for (size_t i = 0; i < sums->size; ++i) {
+        sums->sum_sequential[i] /= Q;
+        sums->sum_static[i] /= Q;
+        sums->sum_dynamic[i] /= Q;
+        sums->sum_guided[i] /= Q;
     }
 
     stats->time_sequential /= ITER_NUM;
@@ -185,26 +187,28 @@ void normalize_results(sum_vectors *sums, elapsed_time_stats *stats) {
     stats->time_guided /= ITER_NUM;
 }
 
-int main(int argc, char* argv[]) {
+int main(void) {
     omp_set_num_threads(NUM_OF_THREADS);
     print_initial_data();
 
+    const size_t vector_size = NMAX;
+
     vectors v = {NULL, NULL, NULL, 0};
-    if (vectors_malloc(&v, NMAX)) {
+    if (vectors_malloc(&v, vector_size)) {
         fprintf(stderr, "Error: memory not allocated for vectors!\n");
         return -1;
     }
 
     sum_vectors sums = {NULL, NULL, NULL, NULL, 0};
-    if (sum_vectors_malloc(&sums, NMAX)) {
+    if (sum_vectors_malloc(&sums, vector_size)) {
         fprintf(stderr, "Error: memory not allocated for sum vectors!\n");
         return -1;
     } 
 
-    for (size_t j = 0; j < v.size; ++j) {
-        v.vec_1[j] = 1.0;
-        v.vec_2[j] = 1.0;
-        v.vec_3[j] = 1.0;
+    for (size_t i = 0; i < v.size; ++i) {
+        v.vec_1[i] = 1.0;
+        v.vec_2[i] = 1.0;
+        v.vec_3[i] = 1.0;
     }
 
     elapsed_time_stats stats;
@@ -220,7 +224,7 @@ int main(int argc, char* argv[]) {
 
         start_time = omp_get_wtime();
         sum_sequential(&v, sums.sum_sequential);
-        stats.time_sequential += omp_get_wtime() - start_time;
+        stats.time_sequential += SECONDS_TO_MILLISECONDS(omp_get_wtime() - start_time);
 
         start_time = omp_get_wtime();
 
@@ -229,7 +233,7 @@ int main(int argc, char* argv[]) {
             #pragma omp barrier
             #pragma omp single
             {
-                stats.time_initialization += omp_get_wtime() - start_time;
+                stats.time_initialization += SECONDS_TO_MILLISECONDS(omp_get_wtime() - start_time);
                 start_time = omp_get_wtime();
             }
 
@@ -237,7 +241,7 @@ int main(int argc, char* argv[]) {
 
             #pragma omp single
             {
-                stats.time_static += omp_get_wtime() - start_time;
+                stats.time_static += SECONDS_TO_MILLISECONDS(omp_get_wtime() - start_time);
                 start_time = omp_get_wtime();
             }
 
@@ -245,7 +249,7 @@ int main(int argc, char* argv[]) {
 
             #pragma omp single
             {
-                stats.time_dynamic += omp_get_wtime() - start_time;
+                stats.time_dynamic += SECONDS_TO_MILLISECONDS(omp_get_wtime() - start_time);
                 start_time = omp_get_wtime();
             }
 
@@ -253,7 +257,7 @@ int main(int argc, char* argv[]) {
 
             #pragma omp single
             {
-                stats.time_guided += omp_get_wtime() - start_time;
+                stats.time_guided += SECONDS_TO_MILLISECONDS(omp_get_wtime() - start_time);
             }
         }
     }
