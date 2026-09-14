@@ -5,10 +5,10 @@
 #include <math.h>
 #include <cuda_runtime.h>
 
-#define NMAX 100000
-#define BLOCK_SIZE 512
-#define ITER_NUM 20
-#define EPSILON 1e-9
+#define NMAX        100000
+#define BLOCK_SIZE  512
+#define ITER_NUM    20
+#define EPSILON     1e-9
 
 #define CUDA_CALL(call)                                                      \
     do {                                                                     \

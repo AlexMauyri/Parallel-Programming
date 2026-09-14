@@ -4,11 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NMAX 1020000
-#define NUM_OF_THREADS 8
-#define ITER_NUM 20
-#define Q 20
-#define EPSILON 1e-9
+#define NMAX            1020000
+#define NUM_OF_THREADS  8
+#define ITER_NUM        20
+#define Q               20
+#define EPSILON         1e-9
 
 #define SECONDS_TO_MILLISECONDS(seconds) ((seconds) * 1e3)
 

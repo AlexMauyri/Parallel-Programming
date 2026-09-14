@@ -4,12 +4,12 @@
 #include <string.h>
 #include <math.h>
 
-#define NMAX 1000000
-#define ADDITION 133
-#define NMAX_NON_MUL (NMAX + ADDITION)
-#define ITER_NUM 20
-#define Q 20
-#define EPSILON 1e-9
+#define NMAX          1000000
+#define ADDITION      133
+#define NMAX_NON_MUL  (NMAX + ADDITION)
+#define ITER_NUM      20
+#define Q             20
+#define EPSILON       1e-9
 
 #define SECONDS_TO_MILLISECONDS(seconds) ((seconds) * 1e3)
 

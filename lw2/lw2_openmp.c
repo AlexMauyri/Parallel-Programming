@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NMAX 100000
-#define NUM_OF_THREADS 8
-#define ITER_NUM 20
-#define Q 20
+#define NMAX            100000
+#define NUM_OF_THREADS  8
+#define ITER_NUM        20
+#define Q               20
 
 #define SECONDS_TO_MILLISECONDS(seconds) ((seconds) * 1e3)
 
