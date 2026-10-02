@@ -53,38 +53,6 @@ int vectors_malloc(vectors *v, const size_t size) {
     return 0;
 }
 
-void print_initial_data(void) {
-    printf("====================== PARAMS =======================\n");
-    printf("Number of vectors: 3\n");
-    printf("Number of elements: %d\n", NMAX);
-    printf("Number of iterations: %d\n", ITER_NUM);
-    printf("Q: %d\n", Q);
-    printf("=====================================================\n");
-}
-
-void print_final_results(const sum_results *sums, const elapsed_time_stats *stats) {
-    printf("====================== RESULTS ======================\n");
-    printf("Sequential sum = %.2f\n", sums->sum_sequential);
-    printf("P2P sum = %.2f\n", sums->sum_pp);
-    printf("Reduce sum = %.2f\n\n", sums->sum_reduce);
-
-    printf("Sequential time = %.4f ms\n", stats->time_sequential);
-    printf("Broadcast time = %.4f ms\n", stats->time_broadcast);
-    printf("P2P time = %.4f ms\n", stats->time_pp);
-    printf("Reduce time = %.4f ms\n\n", stats->time_reduce);
-
-    printf("With broadcast:\n");
-    printf("P2P acceleration: %.4f\n",
-           stats->time_sequential / (stats->time_broadcast + stats->time_pp));
-    printf("Reduce acceleration: %.4f\n\n",
-           stats->time_sequential / (stats->time_broadcast + stats->time_reduce));
-
-    printf("Without broadcast:\n");
-    printf("P2P acceleration: %.4f\n", stats->time_sequential / stats->time_pp);
-    printf("Reduce acceleration: %.4f\n", stats->time_sequential / stats->time_reduce);
-    printf("=====================================================\n");
-}
-
 void sum_sequential(const vectors *v, sum_results *sums) {
     sums->sum_sequential = 0.0;
     for (size_t i = 0; i < v->size; ++i) {
@@ -136,6 +104,38 @@ void sum_reduce(const vectors *v, const size_t i1, const size_t i2, sum_results 
     }
 }
 
+void print_initial_data(void) {
+    printf("====================== PARAMS =======================\n");
+    printf("Number of vectors: 3\n");
+    printf("Number of elements: %d\n", NMAX);
+    printf("Number of iterations: %d\n", ITER_NUM);
+    printf("Q: %d\n", Q);
+    printf("=====================================================\n");
+}
+
+void print_final_results(const sum_results *sums, const elapsed_time_stats *stats) {
+    printf("====================== RESULTS ======================\n");
+    printf("Sequential sum = %.2f\n", sums->sum_sequential);
+    printf("P2P sum = %.2f\n", sums->sum_pp);
+    printf("Reduce sum = %.2f\n\n", sums->sum_reduce);
+
+    printf("Sequential time = %.4f ms\n", stats->time_sequential);
+    printf("Broadcast time = %.4f ms\n", stats->time_broadcast);
+    printf("P2P time = %.4f ms\n", stats->time_pp);
+    printf("Reduce time = %.4f ms\n\n", stats->time_reduce);
+
+    printf("With broadcast:\n");
+    printf("P2P acceleration: %.4f\n",
+           stats->time_sequential / (stats->time_broadcast + stats->time_pp));
+    printf("Reduce acceleration: %.4f\n\n",
+           stats->time_sequential / (stats->time_broadcast + stats->time_reduce));
+
+    printf("Without broadcast:\n");
+    printf("P2P acceleration: %.4f\n", stats->time_sequential / stats->time_pp);
+    printf("Reduce acceleration: %.4f\n", stats->time_sequential / stats->time_reduce);
+    printf("=====================================================\n");
+}
+
 void normalize_results(sum_results *sums, elapsed_time_stats *stats) {
     sums->sum_sequential /= Q;
     sums->sum_pp /= Q;
@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
     vectors v;
     if (vectors_malloc(&v, vector_size)) {
         fprintf(stderr, "Error: memory not allocated for vectors in process %d\n", process_rank);
-        return -1;
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
     if (process_rank == 0) {
         for (size_t i = 0; i < v.size; ++i) {
@@ -188,26 +188,26 @@ int main(int argc, char* argv[]) {
         if (process_rank == 0) {
             start_time = MPI_Wtime();
             sum_sequential(&v, &sums);
-            stats.time_sequential += MPI_Wtime() - start_time;
+            stats.time_sequential += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
         }
 
         start_time = MPI_Wtime();
         MPI_Bcast(v.vec_1, v.size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(v.vec_2, v.size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(v.vec_3, v.size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        stats.time_broadcast += MPI_Wtime() - start_time;
+        stats.time_broadcast += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
 
         MPI_Barrier(MPI_COMM_WORLD);
 
         start_time = MPI_Wtime();
         sum_pp(&v, i1, i2, &sums, process_rank, process_num);
-        stats.time_pp += MPI_Wtime() - start_time;
+        stats.time_pp += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
 
         MPI_Barrier(MPI_COMM_WORLD);
 
         start_time = MPI_Wtime();
         sum_reduce(&v, i1, i2, &sums, process_rank);
-        stats.time_reduce += MPI_Wtime() - start_time;
+        stats.time_reduce += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
 
         MPI_Barrier(MPI_COMM_WORLD);
     }

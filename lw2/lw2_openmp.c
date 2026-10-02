@@ -32,7 +32,7 @@ typedef struct {
     double time_atomic;
 } elapsed_time_stats;
 
-double g_sum_reduction = 0.0;
+static double g_sum_reduction = 0.0;
 
 void vectors_free(vectors *v) {
     free(v->vec_1);
@@ -68,18 +68,21 @@ void sum_sequential(const vectors *v, sum_results *sums) {
 }
 
 void sum_reduction_for(const vectors *v, sum_results *sums) {
-    #pragma omp for collapse(2) reduction(+:g_sum_reduction)
+    #pragma omp for reduction(+:g_sum_reduction)
     for (size_t i = 0; i < v->size; ++i) {
         for (int q = 0; q < Q; ++q) {
             g_sum_reduction += v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
         }
     }
-    #pragma omp single
-    sums->sum_reduction = g_sum_reduction;
+    #pragma omp single 
+    {
+        sums->sum_reduction = g_sum_reduction;
+        g_sum_reduction = 0.0;
+    }
 }
 
 void sum_critical_for(const vectors *v, sum_results *sums) {
-    #pragma omp for collapse(2)
+    #pragma omp for
     for (size_t i = 0; i < v->size; ++i) {
         for (int q = 0; q < Q; ++q) {
             double val = v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
@@ -92,7 +95,7 @@ void sum_critical_for(const vectors *v, sum_results *sums) {
 }
 
 void sum_atomic_for(const vectors *v, sum_results *sums) {
-    #pragma omp for collapse(2)
+    #pragma omp for
     for (size_t i = 0; i < v->size; ++i) {
         for (int q = 0; q < Q; ++q) {
             double val = v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
@@ -107,7 +110,6 @@ void print_initial_data(void) {
     printf("Number of vectors: 3\n");
     printf("Number of elements: %d\n", NMAX);
     printf("Number of threads: %d\n", NUM_OF_THREADS);
-    printf("Actual number of threads: %d\n", omp_get_max_threads());
     printf("Number of iterations: %d\n", ITER_NUM);
     printf("Q: %d\n", Q);
     printf("=====================================================\n");
@@ -178,7 +180,6 @@ int main(void) {
 
     for (int iteration = 0; iteration < ITER_NUM; ++iteration) {
         memset(&sums, 0, sizeof(sums));
-        g_sum_reduction = 0.0;
 
         start_time = omp_get_wtime();
         sum_sequential(&v, &sums);
