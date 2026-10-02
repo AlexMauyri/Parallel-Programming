@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #define NUM_OF_THREADS 	4
-#define ITER_NUM 				12
+#define ITER_NUM 		12
 
 int main(void) {
 	omp_set_num_threads(NUM_OF_THREADS);
