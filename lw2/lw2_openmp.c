@@ -59,7 +59,6 @@ int vectors_malloc(vectors *v, const size_t size) {
 }
 
 void sum_sequential(const vectors *v, sum_results *sums) {
-    sums->sum_sequential = 0.0;
     for (size_t i = 0; i < v->size; ++i) {
         for (int q = 0; q < Q; ++q) {
             sums->sum_sequential += v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
