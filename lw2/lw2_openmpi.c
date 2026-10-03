@@ -183,9 +183,8 @@ int main(int argc, char* argv[]) {
     memset(&stats, 0, sizeof(stats));
 
     for (int iteration = 0; iteration < ITER_NUM; ++iteration) {
-        memset(&sums, 0, sizeof(sums));
-
         if (process_rank == 0) {
+            memset(&sums, 0, sizeof(sums));
             start_time = MPI_Wtime();
             sum_sequential(&v, &sums);
             stats.time_sequential += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
@@ -195,9 +194,8 @@ int main(int argc, char* argv[]) {
         MPI_Bcast(v.vec_1, v.size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(v.vec_2, v.size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(v.vec_3, v.size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        stats.time_broadcast += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
-
         MPI_Barrier(MPI_COMM_WORLD);
+        stats.time_broadcast += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
 
         start_time = MPI_Wtime();
         sum_pp(&v, i1, i2, &sums, process_rank, process_num);
