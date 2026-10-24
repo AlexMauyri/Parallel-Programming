@@ -1,0 +1,346 @@
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of threads: 5
+Number of iterations: 20
+Q: 1
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+Reduction sum = 24000000
+Critical sum = 24000000
+Atomic sum = 24000000
+
+Sequential time = 65.8477 ms
+Initialization time = 0.0949 ms
+Reduction time = 14.8525 ms
+Critical time = 1665.4146 ms
+Atomic time = 503.3703 ms
+
+With initialization:
+Reduction acceleration: 4.4053
+Critical acceleration: 0.0395
+Atomic acceleration: 0.1308
+
+Without initialization:
+Reduction acceleration: 4.4334
+Critical acceleration: 0.0395
+Atomic acceleration: 0.1308
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of threads: 10
+Number of iterations: 20
+Q: 1
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+Reduction sum = 24000000
+Critical sum = 24000000
+Atomic sum = 24000000
+
+Sequential time = 64.2121 ms
+Initialization time = 0.1844 ms
+Reduction time = 7.8270 ms
+Critical time = 2549.0569 ms
+Atomic time = 440.1976 ms
+
+With initialization:
+Reduction acceleration: 8.0151
+Critical acceleration: 0.0252
+Atomic acceleration: 0.1458
+
+Without initialization:
+Reduction acceleration: 8.2040
+Critical acceleration: 0.0252
+Atomic acceleration: 0.1459
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of threads: 15
+Number of iterations: 20
+Q: 1
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+Reduction sum = 24000000
+Critical sum = 24000000
+Atomic sum = 24000000
+
+Sequential time = 56.4603 ms
+Initialization time = 0.2619 ms
+Reduction time = 5.7603 ms
+Critical time = 2557.5176 ms
+Atomic time = 669.2200 ms
+
+With initialization:
+Reduction acceleration: 9.3754
+Critical acceleration: 0.0221
+Atomic acceleration: 0.0843
+
+Without initialization:
+Reduction acceleration: 9.8016
+Critical acceleration: 0.0221
+Atomic acceleration: 0.0844
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of threads: 5
+Number of iterations: 20
+Q: 35
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+Reduction sum = 24000000
+Critical sum = 24000000
+Atomic sum = 24000000
+
+Sequential time = 1441.9715 ms
+Initialization time = 0.0926 ms
+Reduction time = 380.5186 ms
+Critical time = 51000.2424 ms
+Atomic time = 11789.1033 ms
+
+With initialization:
+Reduction acceleration: 3.7886
+Critical acceleration: 0.0283
+Atomic acceleration: 0.1223
+
+Without initialization:
+Reduction acceleration: 3.7895
+Critical acceleration: 0.0283
+Atomic acceleration: 0.1223
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of threads: 10
+Number of iterations: 20
+Q: 35
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+Reduction sum = 24000000
+Critical sum = 24000000
+Atomic sum = 24000000
+
+Sequential time = 1571.5689 ms
+Initialization time = 0.8756 ms
+Reduction time = 196.2808 ms
+Critical time = 92984.4526 ms
+Atomic time = 33047.2053 ms
+
+With initialization:
+Reduction acceleration: 7.9712
+Critical acceleration: 0.0169
+Atomic acceleration: 0.0476
+
+Without initialization:
+Reduction acceleration: 8.0067
+Critical acceleration: 0.0169
+Atomic acceleration: 0.0476
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of threads: 15
+Number of iterations: 20
+Q: 35
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+Reduction sum = 24000000
+Critical sum = 24000000
+Atomic sum = 24000000
+
+Sequential time = 1195.4069 ms
+Initialization time = 1.7792 ms
+Reduction time = 141.8040 ms
+Critical time = 118317.6287 ms
+Atomic time = 16488.6194 ms
+
+With initialization:
+Reduction acceleration: 8.3255
+Critical acceleration: 0.0101
+Atomic acceleration: 0.0725
+
+Without initialization:
+Reduction acceleration: 8.4300
+Critical acceleration: 0.0101
+Atomic acceleration: 0.0725
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of processes: 5
+Number of iterations: 20
+Q: 1
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+P2P sum = 24000000
+Reduce sum = 24000000
+
+Sequential time = 62.7835 ms
+Broadcast time = 61.5134 ms
+P2P time = 12.6231 ms
+Reduce time = 12.5171 ms
+
+With broadcast:
+P2P acceleration: 0.8469
+Reduce acceleration: 0.8481
+
+Without broadcast:
+P2P acceleration: 4.9737
+Reduce acceleration: 5.0158
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of processes: 10
+Number of iterations: 20
+Q: 1
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+P2P sum = 24000000
+Reduce sum = 24000000
+
+Sequential time = 61.8954 ms
+Broadcast time = 95.3018 ms
+P2P time = 6.1349 ms
+Reduce time = 6.1383 ms
+
+With broadcast:
+P2P acceleration: 0.6102
+Reduce acceleration: 0.6102
+
+Without broadcast:
+P2P acceleration: 10.0890
+Reduce acceleration: 10.0836
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of processes: 15
+Number of iterations: 20
+Q: 1
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+P2P sum = 24000000
+Reduce sum = 24000000
+
+Sequential time = 50.1416 ms
+Broadcast time = 115.0209 ms
+P2P time = 3.5448 ms
+Reduce time = 3.3210 ms
+
+With broadcast:
+P2P acceleration: 0.4229
+Reduce acceleration: 0.4237
+
+Without broadcast:
+P2P acceleration: 14.1450
+Reduce acceleration: 15.0983
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of processes: 5
+Number of iterations: 20
+Q: 35
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+P2P sum = 24000000
+Reduce sum = 24000000
+
+Sequential time = 1432.0039 ms
+Broadcast time = 80.7637 ms
+P2P time = 294.8866 ms
+Reduce time = 294.1575 ms
+
+With broadcast:
+P2P acceleration: 3.8121
+Reduce acceleration: 3.8195
+
+Without broadcast:
+P2P acceleration: 4.8561
+Reduce acceleration: 4.8682
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of processes: 10
+Number of iterations: 20
+Q: 35
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+P2P sum = 24000000
+Reduce sum = 24000000
+
+Sequential time = 1473.8875 ms
+Broadcast time = 118.8233 ms
+P2P time = 147.3586 ms
+Reduce time = 146.8814 ms
+
+With broadcast:
+P2P acceleration: 5.5371
+Reduce acceleration: 5.5471
+
+Without broadcast:
+P2P acceleration: 10.0020
+Reduce acceleration: 10.0345
+=====================================================
+
+
+====================== PARAMS =======================
+Number of vectors: 2
+Number of elements: 12000000
+Number of processes: 15
+Number of iterations: 20
+Q: 35
+=====================================================
+====================== RESULTS ======================
+Sequential sum = 24000000
+P2P sum = 24000000
+Reduce sum = 24000000
+
+Sequential time = 1212.9522 ms
+Broadcast time = 168.1815 ms
+P2P time = 80.3702 ms
+Reduce time = 80.6263 ms
+
+With broadcast:
+P2P acceleration: 4.8801
+Reduce acceleration: 4.8751
+
+Without broadcast:
+P2P acceleration: 15.0921
+Reduce acceleration: 15.0441
+=====================================================
