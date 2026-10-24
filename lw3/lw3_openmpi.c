@@ -2,328 +2,281 @@
 #include <mpi.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
-#define NMAX          1000000
-#define ADDITION      133
+#define NMAX          1200000
+#define ADDITION      7669
 #define NMAX_NON_MUL  (NMAX + ADDITION)
 #define ITER_NUM      20
-#define Q             20
-#define EPSILON       1e-9
+#define Q             35
 
 #define SECONDS_TO_MILLISECONDS(seconds) ((seconds) * 1e3)
 
-typedef struct {
-	double *vec_1;
-	double *vec_2;
-	double *vec_3;
-	size_t size;
-} vectors;
+int main(int argc, char* argv[]) {
+    int process_rank, process_num;
 
-typedef struct {
-  double *sum_sequential;
-	double *sum_parallel;
-	size_t size;
-} sum_vectors;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &process_num);
+    MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
 
-typedef struct {
-  double time_sequential_mul;
-  double time_sequential_non_mul;
-  double time_scatter_cast;
-  double time_scatterv_cast;
-  double time_parallel_mul;
-  double time_parallel_non_mul;
-} elapsed_time_stats;
+    size_t vector_size_mul = NMAX;
+    size_t vector_size_non_mul = NMAX_NON_MUL;
 
-void vectors_free(vectors *v) {
-  free(v->vec_1);
-  free(v->vec_2);
-  free(v->vec_3);
-  v->vec_1 = NULL;
-  v->vec_2 = NULL;
-  v->vec_3 = NULL;
-  v->size = 0;
-}
+    int block_size_mul = vector_size_mul / process_num;
+    int block_size_non_mul = vector_size_non_mul / process_num + (process_rank < vector_size_non_mul % process_num ? 1 : 0);
 
-int vectors_malloc(vectors *v, const size_t size) {
-  v->vec_1 = malloc(sizeof(double) * size);
-  v->vec_2 = malloc(sizeof(double) * size);
-  v->vec_3 = malloc(sizeof(double) * size);
-  v->size = size;
+    int *vec_1_mul = NULL, *vec_2_mul = NULL;
+    int *vec_1_non_mul = NULL, *vec_2_non_mul = NULL;
+    int *vec_1_buf_mul = NULL, *vec_2_buf_mul = NULL;
+    int *vec_1_buf_non_mul = NULL, *vec_2_buf_non_mul = NULL;
 
-  if (!v->vec_1 || !v->vec_2 || !v->vec_3) {
-    vectors_free(v);  
-    return -1;
-  }
+    size_t sums_mul_size = NMAX;
+    size_t sums_non_mul_size = NMAX_NON_MUL;
+    int *sum_sequential_mul = NULL, *sum_parallel_mul = NULL;
+    int *sum_sequential_non_mul = NULL, *sum_parallel_non_mul = NULL;
+    int *sum_parallel_mul_buf = NULL, *sum_parallel_non_mul_buf = NULL;
 
-  return 0;
-}
+    int *counts = NULL, *displs = NULL;
 
-void sum_vectors_free(sum_vectors *sums) {
-  free(sums->sum_sequential);
-  free(sums->sum_parallel);
-  sums->sum_sequential = NULL;
-  sums->sum_parallel = NULL;
-  sums->size = 0;
-}
+    if (process_rank == 0) {
+        printf("====================== PARAMS =======================\n");
+        printf("Number of vectors: 2\n");
+        printf("Vector type: int\n");
+        printf("Number of elements for mul: %d\n", NMAX);
+        printf("Number of elements for non mul: %d\n", NMAX_NON_MUL);
+        printf("Number of iterations: %d\n", ITER_NUM);
+        printf("Q: %d\n", Q);
+        printf("=====================================================\n");
 
-int sum_vectors_malloc(sum_vectors *sums, const size_t size) {
-  sums->sum_sequential = malloc(sizeof(double) * size);
-  sums->sum_parallel = malloc(sizeof(double) * size);
-  sums->size = size;
+        vec_1_mul = malloc(sizeof(int) * vector_size_mul);
+        vec_2_mul = malloc(sizeof(int) * vector_size_mul);
 
-  if (!sums->sum_sequential || !sums->sum_parallel) {
-    sum_vectors_free(sums);  
-    return -1;
-  }
+        if (!vec_1_mul || !vec_2_mul) {
+            fprintf(stderr, "Error: memory not allocated for mul vectors!\n");
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
 
-  return 0;
-}
+        vec_1_non_mul = malloc(sizeof(int) * vector_size_non_mul);
+        vec_2_non_mul = malloc(sizeof(int) * vector_size_non_mul);
 
-int arrays_equal(const double *a, const double *b, const size_t size) {
-    for (size_t i = 0; i < size; ++i) {
-        if (fabs(a[i] - b[i]) > EPSILON) {
-            return 0;
+        if (!vec_1_non_mul || !vec_2_non_mul) {
+            fprintf(stderr, "Error: memory not allocated for non mul vectors!\n");
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
+
+        sum_sequential_mul = malloc(sizeof(int) * sums_mul_size);
+        sum_parallel_mul = malloc(sizeof(int) * sums_mul_size);
+
+        if (!sum_sequential_mul || !sum_parallel_mul) {
+            fprintf(stderr, "Error: memory not allocated for mul sum vectors!\n");
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
+
+        sum_sequential_non_mul = malloc(sizeof(int) * sums_non_mul_size);
+        sum_parallel_non_mul = malloc(sizeof(int) * sums_non_mul_size);
+
+        if (!sum_sequential_non_mul || !sum_parallel_non_mul) {
+            fprintf(stderr, "Error: memory not allocated for non mul sum vectors!\n");
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
+
+        counts = malloc(sizeof(int) * process_num);
+        displs = malloc(sizeof(int) * process_num);
+
+        if (!counts || !displs) {
+            fprintf(stderr, "Error: memory not allocated for counts/displs\n");
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
+
+        for (size_t i = 0; i < vector_size_mul; ++i) {
+            vec_1_mul[i] = 1;
+            vec_2_mul[i] = 1;
+        }
+
+        for (size_t i = 0; i < vector_size_non_mul; ++i) {
+            vec_1_non_mul[i] = 1;
+            vec_2_non_mul[i] = 1;
+        }
+
+        int accum = 0;
+        int base = vector_size_non_mul / process_num;
+        int rem = vector_size_non_mul % process_num;
+        for (int i = 0; i < process_num; ++i) {
+            counts[i] = base + (i < rem ? 1 : 0);
+            displs[i] = accum;
+            accum += counts[i];
         }
     }
 
-    return 1;
-}
+    vec_1_buf_mul = malloc(sizeof(int) * block_size_mul);
+    vec_2_buf_mul = malloc(sizeof(int) * block_size_mul);
 
-void print_initial_data(void) {
-  printf("====================== PARAMS =======================\n");
-  printf("Number of vectors: 3\n");
-  printf("Number of elements for mul: %d\n", NMAX);
-  printf("Number of elements for non mul: %d\n", NMAX_NON_MUL);
-  printf("Number of iterations: %d\n", ITER_NUM);
-  printf("Q: %d\n", Q);
-  printf("=====================================================\n");
-}
-
-void print_final_results(const sum_vectors *sums_mul, const sum_vectors *sums_non_mul, const elapsed_time_stats *stats) {
-  printf("====================== RESULTS ======================\n");
-  printf("Mul parallel sum is equal mul sequential sum: %s\n",
-          arrays_equal(sums_mul->sum_sequential, sums_mul->sum_parallel, sums_mul->size) ? "Yes" : "No");
-  printf("Non mul parallel sum is equal non mul sequential sum: %s\n\n",
-          arrays_equal(sums_non_mul->sum_sequential, sums_non_mul->sum_parallel, sums_non_mul->size) ? "Yes" : "No");
-
-  printf("Mul sequential time = %.4f ms\n", stats->time_sequential_mul);
-  printf("Non mul sequential time = %.4f ms\n", stats->time_sequential_non_mul);
-  printf("Scatter cast time = %.4f ms\n", stats->time_scatter_cast);
-  printf("Scatterv time = %.4f ms\n", stats->time_scatterv_cast);
-  printf("Mul parallel time = %.4f ms\n", stats->time_parallel_mul);
-  printf("Non mul parallel time = %.4f ms\n\n", stats->time_parallel_non_mul);
-
-  printf("With scatter:\n");
-  printf("Mul parallel acceleration: %.4f\n",
-          stats->time_sequential_mul / (stats->time_scatter_cast + stats->time_parallel_mul));
-  printf("Non mul acceleration: %.4f\n\n",
-          stats->time_sequential_non_mul / (stats->time_scatterv_cast + stats->time_parallel_non_mul));
-
-  printf("Without scatter:\n");
-  printf("Mul parallel acceleration: %.4f\n", stats->time_sequential_mul / stats->time_parallel_mul);
-  printf("Non mul acceleration: %.4f\n", stats->time_sequential_non_mul / stats->time_parallel_non_mul);
-  printf("=====================================================\n");
-}
-
-void vectors_sum(const vectors *v, double *sum_result) {
-  for (size_t i = 0; i < v->size; ++i) {
-    for (int q = 0; q < Q; ++q) {
-      sum_result[i] += v->vec_1[i] + v->vec_2[i] + v->vec_3[i];
-    }
-  }
-}
-
-void normalize_results(sum_vectors *sums_mul, sum_vectors *sums_non_mul, elapsed_time_stats *stats) {
-  for (size_t i = 0; i < sums_mul->size; ++i) {
-      sums_mul->sum_sequential[i] /= Q;
-      sums_mul->sum_parallel[i] /= Q;
-  }
-	for (size_t i = 0; i < sums_non_mul->size; ++i) {
-      sums_non_mul->sum_sequential[i] /= Q;
-      sums_non_mul->sum_parallel[i] /= Q;
-  }
-
-  stats->time_sequential_mul /= ITER_NUM;
-  stats->time_sequential_non_mul /= ITER_NUM;
-  stats->time_scatter_cast /= ITER_NUM;
-  stats->time_scatterv_cast /= ITER_NUM;
-  stats->time_parallel_mul /= ITER_NUM;
-  stats->time_parallel_non_mul /= ITER_NUM;
-}
-
-int main(int argc, char* argv[]) {
-  int process_rank, process_num;
- 
- 	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &process_num);
-	MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
-
-  const size_t vector_size_mul = NMAX;
-  const size_t vector_size_non_mul = NMAX_NON_MUL;
-  
-  int block_size_mul = vector_size_mul / process_num;
-  int block_size_non_mul = vector_size_non_mul / process_num + (process_rank < NMAX_NON_MUL % process_num ? 1 : 0);
-
-  vectors v_mul = {NULL, NULL, NULL, 0};
-  vectors v_non_mul = {NULL, NULL, NULL, 0};
-  vectors v_buf_mul = {NULL, NULL, NULL, 0};
-  vectors v_buf_non_mul = {NULL, NULL, NULL, 0};
-  sum_vectors sums_mul = {NULL, NULL, 0};
-  sum_vectors sums_non_mul = {NULL, NULL, 0};
-  double *sum_parallel_mul_buf = NULL, *sum_parallel_non_mul_buf = NULL;
-  int *counts = NULL, *displs = NULL;
-
-	if (process_rank == 0) {  
-		print_initial_data();
-		
-  	if (vectors_malloc(&v_mul, vector_size_mul)) {
-  	  fprintf(stderr, "Error: memory not allocated for mul vectors!\n");
-  	  MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-  	}
-    
-    if (vectors_malloc(&v_non_mul, vector_size_non_mul)) {
-  	  fprintf(stderr, "Error: memory not allocated for non mul vectors!\n");
-  	  MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-  	}
-  
-    if (sum_vectors_malloc(&sums_mul, vector_size_mul)) {
-      fprintf(stderr, "Error: memory not allocated for mul sum vectors!\n");
-  	  MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    if (!vec_1_buf_mul || !vec_2_buf_mul) {
+        fprintf(stderr, "Error: memory not allocated for mul vectors buffer in process %d\n!", process_rank);
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
 
-    if (sum_vectors_malloc(&sums_non_mul, vector_size_non_mul)) {
-      fprintf(stderr, "Error: memory not allocated for non mul sum vectors!\n");
-  	  MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    vec_1_buf_non_mul = malloc(sizeof(int) * block_size_non_mul);
+    vec_2_buf_non_mul = malloc(sizeof(int) * block_size_non_mul);
+
+    if (!vec_1_buf_non_mul || !vec_2_buf_non_mul) {
+        fprintf(stderr, "Error: memory not allocated for non mul vectors buffer in process %d\n!", process_rank);
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
 
-  	counts = malloc(sizeof(int) * process_num);
-  	displs = malloc(sizeof(int) * process_num);
+    sum_parallel_mul_buf = malloc(sizeof(int) * block_size_mul);
 
-  	if (!counts || !displs) {
-      fprintf(stderr, "Error: memory not allocated for counts/displs\n");
-      MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    if (sum_parallel_mul_buf == NULL) {
+        fprintf(stderr, "Error: memory not allocated for mul sum vector buffer in process %d\n!", process_rank);
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
 
-  	for (size_t i = 0; i < v_mul.size; ++i) {
-    	v_mul.vec_1[i] = 1.0;
-    	v_mul.vec_2[i] = 1.0;
-    	v_mul.vec_3[i] = 1.0;
-  	}
+    sum_parallel_non_mul_buf = malloc(sizeof(int) * block_size_non_mul);
 
-  	for (size_t i = 0; i < v_non_mul.size; ++i) {
-    	v_non_mul.vec_1[i] = 1.0;
-    	v_non_mul.vec_2[i] = 1.0;
-    	v_non_mul.vec_3[i] = 1.0;
-  	}
+    if (sum_parallel_non_mul_buf == NULL) {
+        fprintf(stderr, "Error: memory not allocated for non mul sum vector buffer in process %d\n!", process_rank);
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
 
-		int accum = 0;
-		int base = vector_size_non_mul / process_num;
-		int rem = vector_size_non_mul % process_num;
-  	for (int i = 0; i < process_num; ++i) {
-  		counts[i] = base + (i < rem ? 1 : 0);
-  		displs[i] = accum;
-  		accum += counts[i];
-  	}
+    double time_sequential_mul = 0.0, time_sequential_non_mul = 0.0;
+    double time_scatter_cast = 0.0, time_scatterv_cast = 0.0;
+    double time_parallel_mul = 0.0, time_parallel_non_mul = 0.0;
+    double start_time;
 
-  }
+    for (int iteration = 0; iteration < ITER_NUM; ++iteration) {
+        if (process_rank == 0) {
+            memset(sum_sequential_mul, 0, sums_mul_size * sizeof(int));
+            memset(sum_sequential_non_mul, 0, sums_non_mul_size * sizeof(int));
+            memset(sum_parallel_mul, 0, sums_mul_size * sizeof(int));
+            memset(sum_parallel_non_mul, 0, sums_non_mul_size * sizeof(int));
+        }
+        memset(sum_parallel_mul_buf, 0, block_size_mul * sizeof(int));
+        memset(sum_parallel_non_mul_buf, 0, block_size_non_mul * sizeof(int));
 
-	if (vectors_malloc(&v_buf_mul, block_size_mul)) {
-  	fprintf(stderr, "Error: memory not allocated for mul vectors buffer in process %d\n!", process_rank);
-  	MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-  }
+        if (process_rank == 0) {
+            start_time = MPI_Wtime();
+            for (size_t i = 0; i < vector_size_mul; ++i) {
+                for (int q = 0; q < Q; ++q) {
+                    sum_sequential_mul[i] += vec_1_mul[i] + vec_2_mul[i];
+                }
+            }
+            time_sequential_mul += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
 
-  if (vectors_malloc(&v_buf_non_mul, block_size_non_mul)) {
-  	fprintf(stderr, "Error: memory not allocated for non mul vectors buffer in process %d\n!", process_rank);
-  	MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-  }
+            start_time = MPI_Wtime();
+            for (size_t i = 0; i < vector_size_non_mul; ++i) {
+                for (int q = 0; q < Q; ++q) {
+                    sum_sequential_non_mul[i] += vec_1_non_mul[i] + vec_2_non_mul[i];
+                }
+            }
+            time_sequential_non_mul += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
+        }
 
-  sum_parallel_mul_buf = malloc(sizeof(double) * block_size_mul);
+        MPI_Barrier(MPI_COMM_WORLD);
 
-  if (sum_parallel_mul_buf == NULL) {
-    fprintf(stderr, "Error: memory not allocated for mul sum vector buffer in process %d\n!", process_rank);
-  	MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-  }
+        start_time = MPI_Wtime();
+        MPI_Scatter(vec_1_mul, block_size_mul, MPI_INT, vec_1_buf_mul, block_size_mul, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Scatter(vec_2_mul, block_size_mul, MPI_INT, vec_2_buf_mul, block_size_mul, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+        time_scatter_cast += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
 
-  sum_parallel_non_mul_buf = malloc(sizeof(double) * block_size_non_mul);
-  
-  if (sum_parallel_non_mul_buf == NULL) {
-    fprintf(stderr, "Error: memory not allocated for non mul sum vector buffer in process %d\n!", process_rank);
-  	MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-  }
-  
-  elapsed_time_stats stats;
-  double start_time;
+        start_time = MPI_Wtime();
+        for (int i = 0; i < block_size_mul; ++i) {
+            for (int q = 0; q < Q; ++q) {
+                sum_parallel_mul_buf[i] += vec_1_buf_mul[i] + vec_2_buf_mul[i];
+            }
+        }
+        MPI_Gather(sum_parallel_mul_buf, block_size_mul, MPI_INT, sum_parallel_mul, block_size_mul, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+        time_parallel_mul += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
 
-  memset(&stats, 0, sizeof(stats));
+        start_time = MPI_Wtime();
+        MPI_Scatterv(vec_1_non_mul, counts, displs, MPI_INT, vec_1_buf_non_mul, block_size_non_mul, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Scatterv(vec_2_non_mul, counts, displs, MPI_INT, vec_2_buf_non_mul, block_size_non_mul, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+        time_scatterv_cast += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
 
-	for (int iteration = 0; iteration < ITER_NUM; ++iteration) {
-		if (process_rank == 0) {
-    	memset(sums_mul.sum_sequential, 0, sums_mul.size * sizeof(double));
-    	memset(sums_non_mul.sum_sequential, 0, sums_non_mul.size * sizeof(double));
-    	memset(sums_mul.sum_parallel, 0, sums_mul.size * sizeof(double));
-    	memset(sums_non_mul.sum_parallel, 0, sums_non_mul.size * sizeof(double));
-		}
-		memset(sum_parallel_mul_buf, 0, block_size_mul * sizeof(double));
-    memset(sum_parallel_non_mul_buf, 0, block_size_non_mul * sizeof(double));
+        start_time = MPI_Wtime();
+        for (int i = 0; i < block_size_non_mul; ++i) {
+            for (int q = 0; q < Q; ++q) {
+                sum_parallel_non_mul_buf[i] += vec_1_buf_non_mul[i] + vec_2_buf_non_mul[i];
+            }
+        }
+        MPI_Gatherv(sum_parallel_non_mul_buf, block_size_non_mul, MPI_INT, sum_parallel_non_mul, counts, displs, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+        time_parallel_non_mul += SECONDS_TO_MILLISECONDS(MPI_Wtime() - start_time);
+    }
 
     if (process_rank == 0) {
-      start_time = MPI_Wtime();
-    	vectors_sum(&v_mul, sums_mul.sum_sequential);
-    	stats.time_sequential_mul += MPI_Wtime() - start_time;
+        for (size_t i = 0; i < sums_mul_size; ++i) {
+            sum_sequential_mul[i] /= Q;
+            sum_parallel_mul[i] /= Q;
+        }
+        for (size_t i = 0; i < sums_non_mul_size; ++i) {
+            sum_sequential_non_mul[i] /= Q;
+            sum_parallel_non_mul[i] /= Q;
+        }
 
-    	start_time = MPI_Wtime();
-    	vectors_sum(&v_non_mul, sums_non_mul.sum_sequential);
-    	stats.time_sequential_non_mul += MPI_Wtime() - start_time;
+        time_sequential_mul /= ITER_NUM;
+        time_sequential_non_mul /= ITER_NUM;
+        time_scatter_cast /= ITER_NUM;
+        time_scatterv_cast /= ITER_NUM;
+        time_parallel_mul /= ITER_NUM;
+        time_parallel_non_mul /= ITER_NUM;
+
+        int mul_equal = 1;
+        for (size_t i = 0; i < sums_mul_size; ++i) {
+            if (sum_sequential_mul[i] != sum_parallel_mul[i]) {
+                mul_equal = 0;
+                break;
+            }
+        }
+
+        int non_mul_equal = 1;
+        for (size_t i = 0; i < sums_non_mul_size; ++i) {
+            if (sum_sequential_non_mul[i] != sum_parallel_non_mul[i]) {
+                non_mul_equal = 0;
+                break;
+            }
+        }
+
+        printf("====================== RESULTS ======================\n");
+        printf("Mul parallel sum is equal mul sequential sum: %s\n", mul_equal ? "Yes" : "No");
+        printf("Non mul parallel sum is equal non mul sequential sum: %s\n\n", non_mul_equal ? "Yes" : "No");
+
+        printf("Mul sequential time = %.4f ms\n", time_sequential_mul);
+        printf("Non mul sequential time = %.4f ms\n", time_sequential_non_mul);
+        printf("Scatter cast time = %.4f ms\n", time_scatter_cast);
+        printf("Scatterv time = %.4f ms\n", time_scatterv_cast);
+        printf("Mul parallel time = %.4f ms\n", time_parallel_mul);
+        printf("Non mul parallel time = %.4f ms\n\n", time_parallel_non_mul);
+
+        printf("With scatter:\n");
+        printf("Mul parallel acceleration: %.4f\n", time_sequential_mul / (time_scatter_cast + time_parallel_mul));
+        printf("Non mul acceleration: %.4f\n\n", time_sequential_non_mul / (time_scatterv_cast + time_parallel_non_mul));
+
+        printf("Without scatter:\n");
+        printf("Mul parallel acceleration: %.4f\n", time_sequential_mul / time_parallel_mul);
+        printf("Non mul acceleration: %.4f\n", time_sequential_non_mul / time_parallel_non_mul);
+        printf("=====================================================\n");
+
+        free(vec_1_mul);
+        free(vec_2_mul);
+        free(vec_1_non_mul);
+        free(vec_2_non_mul);
+        free(sum_sequential_mul);
+        free(sum_parallel_mul);
+        free(sum_sequential_non_mul);
+        free(sum_parallel_non_mul);
+        free(counts);
+        free(displs);
     }
-	
-    MPI_Barrier(MPI_COMM_WORLD);
 
-		start_time = MPI_Wtime();
-		MPI_Scatter(v_mul.vec_1, block_size_mul, MPI_DOUBLE, v_buf_mul.vec_1, block_size_mul, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-		MPI_Scatter(v_mul.vec_2, block_size_mul, MPI_DOUBLE, v_buf_mul.vec_2, block_size_mul, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-		MPI_Scatter(v_mul.vec_3, block_size_mul, MPI_DOUBLE, v_buf_mul.vec_3, block_size_mul, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-		stats.time_scatter_cast += MPI_Wtime() - start_time;
+    free(vec_1_buf_mul);
+    free(vec_2_buf_mul);
+    free(vec_1_buf_non_mul);
+    free(vec_2_buf_non_mul);
+    free(sum_parallel_mul_buf);
+    free(sum_parallel_non_mul_buf);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-		
-		start_time = MPI_Wtime();
-		vectors_sum(&v_buf_mul, sum_parallel_mul_buf);
-		MPI_Gather(sum_parallel_mul_buf, block_size_mul, MPI_DOUBLE, sums_mul.sum_parallel, block_size_mul, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-		stats.time_parallel_mul += MPI_Wtime() - start_time;
-		
-    MPI_Barrier(MPI_COMM_WORLD);
-		
-		start_time = MPI_Wtime();
-		MPI_Scatterv(v_non_mul.vec_1, counts, displs, MPI_DOUBLE, v_buf_non_mul.vec_1, block_size_non_mul, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-		MPI_Scatterv(v_non_mul.vec_2, counts, displs, MPI_DOUBLE, v_buf_non_mul.vec_2, block_size_non_mul, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-		MPI_Scatterv(v_non_mul.vec_3, counts, displs, MPI_DOUBLE, v_buf_non_mul.vec_3, block_size_non_mul, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-		stats.time_scatterv_cast += MPI_Wtime() - start_time;
-
-    MPI_Barrier(MPI_COMM_WORLD);
-		
-		start_time = MPI_Wtime();
-		vectors_sum(&v_buf_non_mul, sum_parallel_non_mul_buf);
-		MPI_Gatherv(sum_parallel_non_mul_buf, block_size_non_mul, MPI_DOUBLE, sums_non_mul.sum_parallel, counts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-		stats.time_parallel_non_mul += MPI_Wtime() - start_time;
-	}
-
-	if (process_rank == 0) {
-  	normalize_results(&sums_mul, &sums_non_mul, &stats);
-  	print_final_results(&sums_mul, &sums_non_mul, &stats);
-
-    vectors_free(&v_mul);	
-    vectors_free(&v_non_mul);
-    sum_vectors_free(&sums_mul);
-    sum_vectors_free(&sums_non_mul);    
-    free(counts);
-    free(displs);
-  }
-
-  vectors_free(&v_buf_mul);
-  vectors_free(&v_buf_non_mul);
-  free(sum_parallel_mul_buf);
-  free(sum_parallel_non_mul_buf);
-  MPI_Finalize();
-	return 0;
+    MPI_Finalize();
+    return 0;
 }
