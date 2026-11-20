@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NMAX          1200000
+#define NMAX          12000000
 #define ADDITION      7669
 #define NMAX_NON_MUL  (NMAX + ADDITION)
 #define ITER_NUM      20
@@ -44,6 +44,7 @@ int main(int argc, char* argv[]) {
         printf("Number of elements for mul: %d\n", NMAX);
         printf("Number of elements for non mul: %d\n", NMAX_NON_MUL);
         printf("Number of iterations: %d\n", ITER_NUM);
+        printf("Number of processes: %d\n", process_num);
         printf("Q: %d\n", Q);
         printf("=====================================================\n");
 

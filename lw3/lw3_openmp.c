@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NMAX            1200000
-#define NUM_OF_THREADS  10
+#define NMAX            12000000
+#define NUM_OF_THREADS  15
 #define ITER_NUM        20
 #define Q               35
 #define CHUNK           10000
